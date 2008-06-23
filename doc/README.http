@@ -1,0 +1,24 @@
+This provides a very basic interface to http; it should be considered 
+poorly built, lame, and dangerous until further notice.
+
+That said, if you GET or POST form data name/value pairs to the proxy port 
+using HTTP, the proxy will treat it as Name: Value input and will act on 
+it, and will respond back in whatever format you want to use.
+
+A useful scenario might be to use http input and xml output.
+
+The following form can be used as a test:
+
+<HTML>
+<FORM ACTION="http://myhost:1234" METHOD=POST>
+Action: <input name="Action" type="text" value="Ping"><br>
+ActionID: <input name="ActionID" type="text" value="Foo"><br>
+<input type=submit><br>
+</FORM>
+</HTML>
+
+See samples/httpast.html for a sample file that implements this.
+
+It would be best to use this with autofilter=on since right now you are 
+only going to get one response block back, and it might as well be 
+relevant. :)

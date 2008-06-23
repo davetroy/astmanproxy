@@ -1,0 +1,21 @@
+The XML input handler is homegrown and very basic at this point.  The 
+following represents valid XML input:
+
+<AsteriskManagerInput>
+   <Action Value="Ping"/>
+   <ActionID Value="foo"/>
+</AsteriskManagerInput>
+
+<AsteriskManagerInput>
+   <ProxyAction Value="SetOutputFormat"/>
+   <Outputformat Value="CSV"/>
+</AsteriskManagerInput>
+
+It's entirely possible that other formats will break the parser entirely.  
+I am toying with going with a lightweight XML parser like MiniXML that may 
+give some more flexibility at the price of having a dependency.  It is 
+very likely, though, that the current parser will work fine for most 
+applications.
+
+DCT 6/23/2005
+

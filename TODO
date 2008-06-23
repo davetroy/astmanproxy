@@ -1,0 +1,11 @@
+trap action=command in xml.c; remove arbitrary detection of unparsed data
+write SOAP methods for http.c to use
+clean up reconnect to lost asterisk server (socket reuse)
+clean up debugmsg instances to add if (debug)
+deal with http non-conformity better, and act on POST MIME-type inputs
+
+Check for module versions; do not run without modules installed
+State maintenance modules
+tcpwrappers/access control/connect mask?
+libtool/autoconf/automake support
+SetInputFormat proxyaction?

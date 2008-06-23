@@ -1,0 +1,27 @@
+Quick Install Instructions
+--------------------------
+
+Requirements: openssl, openssl-devel
+
+Installation is easy:
+
+1. make
+2. make install
+3. To run: 
+
+astmanproxy -d (for debug mode)
+astmanproxy -dddddd (for more debug info)
+astmanproxy (for background mode)
+
+Other make actions:
+
+make cert		Makes initial proxy server certificate
+make certificate	Forces remake of proxy server certificate)
+make clean		Remove all binary object files from source tree
+
+Please read README and docs/README.* for info on specific modules.
+
+Enjoy!
+
+--------------------------------------------
+(C) 2005-2006 David C. Troy, dave@popvox.com

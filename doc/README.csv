@@ -1,0 +1,7 @@
+This I/O Handler was put together primarily as a demonstration of
+how easy it is to write handler routines for astmanproxy.
+
+However, it could be handy if you need CSV output, too. :)  There
+is no _read routine at this time; I would welcome someone to write
+one and submit it to the project!
+

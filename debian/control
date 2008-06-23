@@ -1,0 +1,12 @@
+Source: astmanproxy
+Section: unknown
+Priority: optional
+Maintainer: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
+Build-Depends: debhelper (>= 4.0.0)
+Standards-Version: 3.6.1
+
+Package: astmanproxy
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: <insert up to 60 chars description>
+ <insert long description, indented with spaces>

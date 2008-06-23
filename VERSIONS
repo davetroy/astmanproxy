@@ -1,0 +1,67 @@
+1.21	Major code formatting cleanup and official release of 1.21pre (trunk)
+        Documentation overhaul & cleanup
+
+1.21pre	Added URLDecode routine to http.c to deal with URL-encoded GET/POST data
+	Fixed xml.c to better deal with cli/unparsed data
+	Cleaned up Makefile for better support of Mac OS X 10.4
+	Changed message to be dynamically allocated in HandleAsterisk; solved bus error on Mac OS X 10.4
+
+1.20	Cleanup and official release of 1.20pre
+
+1.20pre	Now using ast_carefulwrite for non-blocking writes to all sockets	
+	Added asteriskwritetimeout config setting for asterisk write timeout
+	Added clientwritetimeout config setting for client write timeout
+	Added support for astmanproxy.users user authentication (Steve Davies)
+	Added support for Action: Challenge/AuthType: MD5 authentication
+	Added challenge field to mansession structure for use by Action: Challenge
+	Added writetimeout var to mansession structure for use by ast_carefulwrite
+	Added SSL Support (Remco Treffkorn, Mahesh Karoshi, John Todd; Tello Corp)
+	Added 'usessl' option for connecting to asterisk servers
+	Fixed proxykey pointer bug (Steve Davies)
+	Ditched autodisconnect handler property in favor of inputcomplete/outputcomplete
+
+------------------------------------------------------------------------------------------------
+1.1pre2	Completely Modularized and Abstracted Input/Output formats
+	Cleaned up session write mutex code (Peter Loeppky)
+	Fixed message initialization bug -- using wrong sizeof
+	Added XML Input format
+	Added HTTP Input format
+	Added CSV Output format
+	Support for connections to an arbitrary number of Asterisk servers
+	Added retryinterval and maxretries to conf for reconnecting lost servers
+
+1.1pre3	Added _autodisconnect property for I/O handlers
+	Added _onconnect method for I/O handlers
+	Returned connection banner to standard input handler via _onconnect method
+
+1.1	Finalized /usr/lib/astmanproxy/modules for shared objects in Makefile
+	Added make uninstall target
+	Added fail on no I/O handlers loaded
+	Updated README, added samples dir
+1.11	Added ProxyAction ListServers (Richard Lyman)
+	Fixed output bug, excess terminators (Dennis Persson)
+1.12	Added support for bad/old-style Asterisk output (Ron Arts)
+	Tweaked for compatibility with Flash Operator Panel (Nicolas Gudino)
+1.13	Changed to read only /etc/asterisk/astmanproxy.conf and not ./astmanproxy.conf
+	Added a 'connected' field so we don't try to write to servers which are not yet connected
+	Exits when there are no servers able to connect
+	Doesn't attempt to re-connect to a server if we get 'Authentication failed'
+	Added a connection timeout by using connect_nonb
+	Confirmed support for x86-64 processors (added -fPIC; Jennifer Hales)
+	Added support for Mac OS X (Tested on 10.3.9); BSD may also work
+	Aborts on old config file format (detects incomplete server spec)
+
+------------------------------------------------------------------------------------------------
+0.99a	Initial Beta Release
+0.99b	Moved WriteXMLClient into xml.c
+	Fixed XML tag bug (Bryan Ballard)
+	Fixed ast_log instances
+1.0	First major release
+1.0a	Added minor Makefile changes
+	Added Debian package support (Tzafrir Cohen)
+1.0b	Action: logoff (lowercase) was not intercepted properly (Steven Blatchford)
+	Fixed SetOutputFormat documentation error (Steven Blatchford)
+1.0c	Intercept empty command blocks; do not pass to Asterisk
+	Added call for proxyerror routine, previously unreferenced
+	Intercept Action: Login; always authenticates and does not pass to *
+1.0d	Properly intercept SIGPIPE (Brian Jones)

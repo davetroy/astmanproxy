@@ -1,0 +1,10 @@
+; Astmanproxy user list
+;
+; Reload permissions by sending a SIGHUP
+;
+; "user" is the username, secret is the password, and the (optional)
+; channel setting causes filtering of events only for the specified
+; channel to be sent to this user.
+;
+; user=secret,channel,out_context (to Asterisk),in_context (From Asterisk)
+steve=steve,SIP/snom190,local,

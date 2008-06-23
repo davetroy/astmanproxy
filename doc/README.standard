@@ -1,0 +1,15 @@
+This is the standard input/output handler.  This handler implements the
+traditional Asterisk Manager interface I/O format, which can be
+described as follows:
+
+Each block of input and output should be described in terms of headers,
+each terminated with \r\n (cr+lf) and consisting of a name/value pair,
+and each block of headers should be terminated with two \r\n sequences:
+
+Name1: Value1\r\nName2: Value2\r\n\r\n\r\n
+
+The "standard" IO handler is used by astmanproxy to communicate with
+Asterisk server sessions.  Clients connecting to astmanproxy can use
+the "standard" handler if they wish, for either input, output or both,
+or may use any other available handler.
+
