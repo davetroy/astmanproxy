@@ -1,5 +1,5 @@
 /* 	Asterisk Manager Proxy
-	Copyright (c) 2005-2006 David C. Troy <dave@popvox.com>
+	Copyright (c) 2005-2008 David C. Troy <dave@popvox.com>
 
 	This program is free software, distributed under the terms of
 	the GNU General Public License.

@@ -2,7 +2,7 @@
  * ssl_addon: Encrypts the asterisk management interface
  *
  * Copyrights:
- * Copyright (C) 2005-2006, Tello Corporation, Inc.
+ * Copyright (C) 2005-2008, Tello Corporation, Inc.
  *
  * Contributors:
  * Remco Treffkorn(Architect) and Mahesh Karoshi

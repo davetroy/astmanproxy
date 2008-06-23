@@ -1,7 +1,7 @@
 /*
  * Asterisk -- An open source telephony toolkit.
  *
- * Copyright (C) 2006, Tello Corporation, Inc.
+ * Copyright (C) 2008, Tello Corporation, Inc.
  *
  * Remco Treffkorn(Architect) and Mahesh Karoshi(Senior Software Developer)
  *

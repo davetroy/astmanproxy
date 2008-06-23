@@ -1,5 +1,5 @@
 astmanproxy README
-(c) 2005-2006 David C. Troy, dave@popvox.com
+(c) 2005-2008 David C. Troy, dave@popvox.com
 ------------------------------------------------------------------
 FOREWORD & QUICK START
 
@@ -62,7 +62,7 @@ Please send your feedback!  We are looking for contributors to add
 support for new I/O formats and add new features!
 
 Contributions:
-  Paypal via dave@toad.net; beer accepted at Astricon events
+  Paypal via dave@popvox.com; beer accepted at Astricon events
 
 ===================================================================
 Additional Proxy Features
@@ -300,43 +300,13 @@ into Asterisk (even multiple boxes!) with no web servers needed.
 ===================================================================
 Software Updates, Author Info, and How to Contribute
 
-Digium has graciously agreed to host the development of AstManProxy
-on their Subversion Community Server.
+Current development on AstManProxy is happening here:
+http://github.com/davetroy/astmanproxy/tree/master
 
-Latest releases can be found here:
-http://svncommunity.digium.com/view/astmanproxy
+Please feel free to fork and contribute!
 
-For development branches & experimental features:
-http://svncommunity.digium.com/view/astmanproxy/branches
-
-For current development/stable snapshot:
-http://svncommunity.digium.com/view/astmanproxy/trunk
-
-For stable release versions:
-http://svncommunity.digium.com/view/astmanproxy/tags
-
-To download from these repositories:
-
- - Install Subversion (yum -y install subversion -- or equivalent)
- - svn checkout http://svncommunity.digium.com/svn/astmanproxy/trunk
-
-Be sure to use the full URL path to the version you wish to check out;
-for example, do not checkout the 'branches' tree, but instead choose
-which branch to checkout, as in:
-
-http://svncommunity.digium.com/svn/astmanproxy/branches/1.2x
-
-I will also try to post current tarballs here:
-http://www.popvox.com/astmanproxy
-
-Donations are accepted via paypal to dave@toad.net; beer is also
-accepted at Astricon events. :)
-
-To contact me about contributing to the project, please email:
-dave@popvox.com
-
-I acknowledge all contributions and encourage your experimentation!
-AstManProxy would not be where it is without your support!!
+Also, there is a new mailing list / group available here:
+http://groups.google.com/?hl=en
 
 ===================================================================
 AstManProxy Background Information
@@ -381,4 +351,4 @@ and output format -- implemented as abstracted I/O handlers -- and
 these are configurable on a per-client basis. 
 
 ===================================================================
-(C) 2005-2006 David C. Troy, dave@popvox.com
+(C) 2005-2008 David C. Troy, dave@popvox.com
