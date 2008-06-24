@@ -27,6 +27,8 @@
 #define BUFSIZE		 1024
 #define MAX_HEADERS	 256
 #define MAX_LEN		 1024
+#define MAX_STACK	 1024
+#define MAX_STACKDATA	 32768
 
 #define PROXY_BANNER	"Asterisk Call Manager Proxy"
 #define PROXY_SHUTDOWN  "ProxyMessage: Proxy Shutting Down"
@@ -50,6 +52,8 @@ struct proxy_user {
 	char channel[80];
 	char icontext[80];
 	char ocontext[80];
+	char account[80];
+	char server[80];
 	struct proxy_user *next;
 };
 
@@ -85,6 +89,12 @@ struct iohandler {
 	struct iohandler *next;
 };
 
+struct mstack {
+	struct mstack *next;
+	char uniqueid[80];
+	char *message;
+};
+
 struct mansession {
 	pthread_t t;
 	pthread_mutex_t lock;
@@ -106,6 +116,8 @@ struct mansession {
 	char actionid[MAX_LEN];
 	char challenge[10];			/*! Authentication challenge */
 	int writetimeout;  			/* Timeout for ast_carefulwrite() */
+	struct mstack *stack;
+	int depth;
 	struct mansession *next;
 };
 
@@ -134,7 +146,7 @@ int get_input(struct mansession *s, char *output);
 int SetIOHandlers(struct mansession *s, char *ifmt, char *ofmt);
 void destroy_session(struct mansession *s);
 int ast_carefulwrite(int fd, char *s, int len, int timeoutms);
-extern void *SendError(struct mansession *s, char *errmsg);
+extern void *SendError(struct mansession *s, char *errmsg, char *actionid);
 
 int close_sock(int socket);
 int ProxyChallenge(struct mansession *s, struct message *m);

@@ -57,6 +57,12 @@ void *add_userperm(char* username, char *userspec, struct proxy_user **pu) {
 			case 3:
 			 strncat(user->icontext, s, 1);
 			 break;
+			case 4:
+			 strncat(user->account, s, 1);
+			 break;
+			case 5:
+			 strncat(user->server, s, 1);
+			 break;
 		}
 	} while (*(s++));
 

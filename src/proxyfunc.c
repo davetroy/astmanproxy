@@ -76,9 +76,11 @@ void *ProxySetOutputFormat(struct mansession *s, struct message *m) {
 
 int ProxyChallenge(struct mansession *s, struct message *m) {
 	struct message mo;
+	char *actionid;
 
+	actionid = astman_get_header(m, "ActionID");
 	if ( strcasecmp("MD5", astman_get_header(m, "AuthType")) ) {
-		SendError(s, "Must specify AuthType");
+		SendError(s, "Must specify AuthType", actionid);
 		return 1;
 	}
 
@@ -88,6 +90,8 @@ int ProxyChallenge(struct mansession *s, struct message *m) {
 	memset(&mo, 0, sizeof(struct message));
 	AddHeader(&mo, "Response: Success");
 	AddHeader(&mo, "Challenge: %s", s->challenge);
+	if( actionid && strlen(actionid) )
+		AddHeader(&mo, "ActionID: %s", actionid);
 
 	s->output->write(s, &mo);
 	return 0;
@@ -147,13 +151,16 @@ int AuthMD5(char *key, char *challenge, char *password) {
 void *ProxyLogin(struct mansession *s, struct message *m) {
 	struct message mo;
 	struct proxy_user *pu;
-	char *user, *secret, *key;
+	char *user, *secret, *key, *actionid;
 
 	user = astman_get_header(m, "Username");
 	secret = astman_get_header(m, "Secret");
 	key = astman_get_header(m, "Key");
+	actionid = astman_get_header(m, "ActionID");
 
 	memset(&mo, 0, sizeof(struct message));
+	if( actionid && strlen(actionid) > 0 )
+		AddHeader(&mo, "ActionID: %s", actionid);
 	if( debug )
 		debugmsg("Login attempt as: %s/%s", user, secret);
 
@@ -170,6 +177,8 @@ void *ProxyLogin(struct mansession *s, struct message *m) {
 				strcpy(s->user.channel, pu->channel);
 				strcpy(s->user.icontext, pu->icontext);
 				strcpy(s->user.ocontext, pu->ocontext);
+				strcpy(s->user.account, pu->account);
+				strcpy(s->user.server, pu->server);
 				pthread_mutex_unlock(&s->lock);
 				if( debug )
 					debugmsg("Login as: %s", user);
@@ -181,7 +190,7 @@ void *ProxyLogin(struct mansession *s, struct message *m) {
 	pthread_mutex_unlock(&userslock);
 
 	if( !pu ) {
-		SendError(s, "Authentication failed");
+		SendError(s, "Authentication failed", actionid);
 		pthread_mutex_lock(&s->lock);
 		s->authenticated = 0;
 		pthread_mutex_unlock(&s->lock);
@@ -341,38 +350,224 @@ int proxyerror_do(struct mansession *s, char *err)
 	return 0;
 }
 
+/* [do_]AddToStack - Stores an event in a stack for later repetition.
+		indexted on UniqueID.
+   If SrcUniqueID / DestUniqueID are present, store against both.
+   If a record already exists, do nothing.
+   withbody = 1, saves a copy of whole message (server).
+   withbody = 0, saves just the key (client).
+*/
+void do_AddToStack(char *uniqueid, struct message *m, struct mansession *s, int withbody)
+{
+	struct mstack *prev;
+	struct mstack *t;
+
+        pthread_mutex_lock(&s->lock);
+	prev = NULL;
+	t = s->stack;
+
+	while( t ) {
+		if( !strncmp( t->uniqueid, uniqueid, sizeof(t->uniqueid) ) )
+		{
+			pthread_mutex_unlock(&s->lock);
+			return;
+		}
+		prev = t;
+		t = t->next;
+	}
+	if( s->depth >= MAX_STACK ) {
+		struct mstack *newtop;
+
+		newtop = s->stack->next;
+		if( s->stack->message )
+			free( s->stack->message );
+		free( s->stack );
+		s->stack = newtop;
+		s->depth--;
+	}
+	if( (t = malloc(sizeof(struct mstack))) ) {
+		memset(t, 0, sizeof(struct mstack));
+		strncpy( t->uniqueid, uniqueid, sizeof(t->uniqueid) );
+		s->depth++;
+		if( prev )
+			prev->next = t;
+		else
+			s->stack = t;
+		if( withbody ) {
+			// Save the message, in a reduced form to save memory...
+			int m_size;
+			int i, j;
+			m_size = 1;
+			j = 0;
+			for( i = 0; i < m->hdrcount; i++ ) {
+				m_size += strlen(m->headers[i])+1;
+			}
+			if( m_size < MAX_STACKDATA && (t->message = malloc(m_size)) ) {
+				memset(t->message, 0, m_size);
+				for( i = 0; i < m->hdrcount; i++ ) {
+					strncpy( t->message, m->headers[i], m_size - j );
+				}
+			}
+		}
+		if( debug ) {
+			debugmsg("Added uniqueid: %s to %s stack", uniqueid, withbody?"server":"client");
+			if( t->message)
+				debugmsg("Cached message: %s", t->message);
+		}
+	}
+	pthread_mutex_unlock(&s->lock);
+}
+void AddToStack(struct message *m, struct mansession *s, int withbody)
+{
+	char *uniqueid;
+
+	uniqueid = astman_get_header(m, "Uniqueid");
+	if( uniqueid[0] != '\0' )
+		do_AddToStack(uniqueid, m, s, withbody);
+	uniqueid = astman_get_header(m, "SrcUniqueID");
+	if( uniqueid[0] != '\0' )
+		do_AddToStack(uniqueid, m, s, withbody);
+	uniqueid = astman_get_header(m, "DestUniqueID");
+	if( uniqueid[0] != '\0' )
+		do_AddToStack(uniqueid, m, s, withbody);
+}
+
+
+/* DelFromStack - Removes an item from the stack based on the UniqueID field.
+*/
+void DelFromStack(struct message *m, struct mansession *s)
+{
+	char *uniqueid;
+	struct mstack *prev;
+	struct mstack *t;
+
+	uniqueid = astman_get_header(m, "Uniqueid");
+	if( uniqueid[0] == '\0' )
+		return;
+
+        pthread_mutex_lock(&s->lock);
+	prev = NULL;
+	t = s->stack;
+
+	while( t ) {
+		if( !strncmp( t->uniqueid, uniqueid, sizeof(t->uniqueid) ) )
+		{
+			if( t->message )
+				free( t->message );
+			if( prev )
+				prev->next = t->next;
+			else
+				s->stack = t->next;
+			free( t );
+			s->depth--;
+			if( debug )
+				debugmsg("Removed uniqueid: %s from stack", uniqueid);
+			break;
+		}
+		prev = t;
+		t = t->next;
+	}
+        pthread_mutex_unlock(&s->lock);
+}
+
+/* FreeStack - Removes all items from stack.
+*/
+void FreeStack(struct mansession *s)
+{
+	struct mstack *t;
+
+        pthread_mutex_lock(&s->lock);
+	t = s->stack;
+
+	while( t ) {
+		if( t->message )
+			free( t->message );
+		free( t );
+		s->depth--;
+		t = t->next;
+	}
+	s->stack = NULL;
+        pthread_mutex_unlock(&s->lock);
+}
+
+/* IsInStack - If the message has a UniqueID, and it is in the stack...
+*/
+int IsInStack(char* uniqueid, struct mansession *s)
+{
+	struct mstack *t;
+
+        pthread_mutex_lock(&s->lock);
+	t = s->stack;
+
+	while( t ) {
+		if( !strncmp( t->uniqueid, uniqueid, sizeof(t->uniqueid) ) )
+		{
+			pthread_mutex_unlock(&s->lock);
+			return 1;
+		}
+		t = t->next;
+	}
+        pthread_mutex_unlock(&s->lock);
+	return 0;
+}
+
 int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	char *channel, *channel1, *channel2;
 	char *context;
 	char *uchannel;
 	char *ucontext;
+	char *action;
+	char *account;
+	char *uniqueid;
 
 	if( pc.authrequired && !s->authenticated )
 		return 0;
 
-	if( inbound )
+	if( inbound )	// Inbound to client from server
 		ucontext = s->user.icontext;
-	else
+	else		// Outbound from client to server
 		ucontext = s->user.ocontext;
 	uchannel = s->user.channel;
 
-	channel = astman_get_header(m, "Channel");
-	if( channel[0] != '\0' && uchannel[0] != '\0' )
-		if( strncasecmp( channel, uchannel, strlen(uchannel) ) ) {
-			if( debug )
-				debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
-			return 0;
-		}
+	uniqueid = astman_get_header(m, "Uniqueid");
+	if( uniqueid[0] != '\0' && IsInStack(uniqueid, s) ) {
+		if( debug )
+			debugmsg("Message passed (uniqueid): %s already passed", uniqueid);
+		return 0;
+	}
 
-	channel1 = astman_get_header(m, "Channel1");
-	channel2 = astman_get_header(m, "Channel2");
-	if( (channel1[0] != '\0' || channel2[0] != '\0') && uchannel[0] != '\0' )
-		if( !(strncasecmp( channel1, uchannel, strlen(uchannel) ) == 0 ||
-			  strncasecmp( channel2, uchannel, strlen(uchannel) ) == 0) ) {
-			if( debug )
-				debugmsg("Message filtered (chan): %s/%s != %s", channel1, channel2, uchannel);
-			return 0;
+	if( uchannel[0] != '\0' ) {
+		channel = astman_get_header(m, "Channel");
+		if( channel[0] != '\0' ) {	// We have a Channel: header, so filter on it.
+			if( strncasecmp( channel, uchannel, strlen(uchannel) ) ) {
+				if( debug )
+					debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
+				return 0;
+			}
+		} else {			// No Channel: header, what about Channel1: or Channel2: ?
+			channel1 = astman_get_header(m, "Channel1");
+			channel2 = astman_get_header(m, "Channel2");
+			if( channel1[0] != '\0' || channel2[0] != '\0' ) {
+				if( !(strncasecmp( channel1, uchannel, strlen(uchannel) ) == 0 ||
+					  strncasecmp( channel2, uchannel, strlen(uchannel) ) == 0) ) {
+					if( debug )
+						debugmsg("Message filtered (chan1/2): %s/%s != %s", channel1, channel2, uchannel);
+					return 0;
+				}
+			} else {		// No? What about Source: and Destination:
+				channel1 = astman_get_header(m, "Source");
+				channel2 = astman_get_header(m, "Destination");
+				if( channel1[0] != '\0' || channel2[0] != '\0' ) {
+					if( !(strncasecmp( channel1, uchannel, strlen(uchannel) ) == 0 ||
+						  strncasecmp( channel2, uchannel, strlen(uchannel) ) == 0) ) {
+						if( debug )
+							debugmsg("Message filtered (src/dst chan): %s/%s != %s", channel1, channel2, uchannel);
+						return 0;
+					}
+				}
+			}
 		}
+	}
 
 	context = astman_get_header(m, "Context");
 	if( context[0] != '\0' && ucontext[0] != '\0' )
@@ -382,15 +577,38 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 			return 0;
 		}
 
+	action = astman_get_header(m, "Action");
+	if( s->user.account[0] != '\0' ) {
+		account = astman_get_header(m, "Account");
+		if( !strcasecmp( action, "Originate" ) ) {
+			if( debug )
+				debugmsg("Got Originate. Account: %s, setting to: %s", account, s->user.account);
+			if( account[0] == '\0' )
+				AddHeader(m, "Account: %s", s->user.account);
+			else
+				strcpy(account, s->user.account);
+		} else if( account[0] != '\0' ) {
+			if( debug )
+				debugmsg("Got Account: %s, setting to: %s", account, s->user.account);
+			strcpy(account, s->user.account);
+		}
+	}
+
+	if( inbound )
+		AddToStack(m, s, 0);
+// TODO: Send a retrospective Newchannel from the cache (m->session->cache) to this client (s)...
+// Probably best to do this by returning an indication that this will be necessary.
 	return 1;
 }
 
-void *SendError(struct mansession *s, char *errmsg) {
+void *SendError(struct mansession *s, char *errmsg, char *actionid) {
 	struct message m;
 
 	memset(&m, 0, sizeof(struct message));
 	AddHeader(&m, "Response: Error");
 	AddHeader(&m, "Message: %s", errmsg);
+	if( actionid && strlen(actionid) )
+		AddHeader(&m, "ActionID: %s", actionid);
 
 	s->output->write(s, &m);
 

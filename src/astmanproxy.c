@@ -21,6 +21,9 @@ extern void *proxyaction_do(char *proxyaction, struct message *m, struct mansess
 extern void *ProxyLogin(struct mansession *s, struct message *m);
 extern void *ProxyLogoff(struct mansession *s);
 extern int ValidateAction(struct message *m, struct mansession *s, int inbound);
+extern void AddToStack(struct message *m, struct mansession *s, int withbody);
+extern void DelFromStack(struct message *m, struct mansession *s);
+extern void FreeStack(struct mansession *s);
 
 int ConnectAsterisk(struct mansession *s);
 
@@ -82,6 +85,7 @@ void leave(int sig) {
 			logmsg("Shutdown, closed client %s", ast_inet_ntoa(iabuf, sizeof(iabuf), c->sin.sin_addr));
 		}
 		close_sock(c->fd);	/* close tcp & ssl socket */
+		FreeStack(c);
 		pthread_mutex_destroy(&c->lock);
 		free(c);
 	}
@@ -157,6 +161,7 @@ void destroy_session(struct mansession *s)
 			sessions = cur->next;
 		debugmsg("Connection closed: %s", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));
 		close_sock(s->fd);	/* close tcp/ssl socket */
+		FreeStack(s);
 		pthread_mutex_destroy(&s->lock);
 		free(s);
 	} else if (debug)
@@ -173,8 +178,18 @@ void destroy_session(struct mansession *s)
 int WriteClients(struct message *m) {
 	struct mansession *c;
 	char *actionid;
+	char *action;
 
 	c = sessions;
+
+	// We stash New Channel events in case they are filtered and need to be
+	// re-played at a later time. Hangup events also clean the list.
+	action = astman_get_header(m, "Action");
+	if( !strcasecmp( action, "Newchannel" ) ) {
+		AddToStack(m, m->session, 1);
+	} else if( !strcasecmp( action, "Hangup" ) ) {
+		DelFromStack(m, m->session);
+	}
 	while (c) {
 		if ( !c->server && m->hdrcount>1 && ValidateAction(m, c, 1) ) {
 			if (c->autofilter && c->actionid) {
@@ -198,14 +213,19 @@ int WriteClients(struct message *m) {
 int WriteAsterisk(struct message *m) {
 	int i;
 	char outstring[MAX_LEN], *dest;
-	struct mansession *s, *first;
+	struct mansession *u, *s, *first;
 
 	first = NULL;
 	dest = NULL;
 
 	s = sessions;
+	u = m->session;
 
-	dest = astman_get_header(m, "Server");
+	if( u->user.server[0] != '\0' )
+		dest = u->user.server;
+	else
+		dest = astman_get_header(m, "Server");
+
 	if (debug && *dest) debugmsg("set destination: %s", dest);
 	while ( s ) {
 		if ( s->server && (s->connected > 0) ) {
@@ -282,24 +302,22 @@ void *session_do(struct mansession *s)
 			proxyaction = astman_get_header(&m, "ProxyAction");
 			actionid = astman_get_header(&m, ACTION_ID);
 			action = astman_get_header(&m, "Action");
-			if ( !strcasecmp(action, "Login") )
-			if (!s->authenticated)
+			if ( !strcasecmp(action, "Login") ) {
+				s->authenticated = 0;
 				ProxyLogin(s, &m);
-			else
-				break;
-			else if ( !strcasecmp(action, "Logoff") )
-			ProxyLogoff(s);
+			} else if ( !strcasecmp(action, "Logoff") )
+				ProxyLogoff(s);
 			else if ( !strcasecmp(action, "Challenge") )
-			ProxyChallenge(s, &m);
+				ProxyChallenge(s, &m);
 			else if ( !(*proxyaction == '\0') )
-			proxyaction_do(proxyaction, &m, s);
+				proxyaction_do(proxyaction, &m, s);
 			else if ( ValidateAction(&m, s, 0) ) {
-			if ( !(*actionid == '\0') )
-				setactionid(actionid, &m, s);
-			if ( !WriteAsterisk(&m) )
-				break;
+				if ( !(*actionid == '\0') )
+					setactionid(actionid, &m, s);
+				if ( !WriteAsterisk(&m) )
+					break;
 			} else {
-			SendError(s, "Action Filtered");
+				SendError(s, "Action Filtered", action);
 			}
 		} else if (res < 0)
 			break;
@@ -352,7 +370,7 @@ void *HandleAsterisk(struct mansession *s)
 			AddHeader(m, "Server: %s", m->session->server->ast_host);
 
 			if (!WriteClients(m))
-			break;
+				break;
 		} else if (res < 0) {
 			/* TODO: do we need to do more than this here? or something different? */
 			if ( debug )
@@ -589,6 +607,7 @@ static void *accept_thread()
 		s->fd = as;
 		SetIOHandlers(s, pc.inputformat, pc.outputformat);
 		s->autofilter = pc.autofilter;
+		s->writetimeout = pc.clientwritetimeout;
 		s->server = NULL;
 
 		pthread_mutex_lock(&sessionlock);

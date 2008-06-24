@@ -205,8 +205,26 @@ filtered on a per-user basis.
 channel setting causes filtering of events only for the specified
 channel to be sent to this user.
 
-; user=secret,channel,out_context (to Asterisk),in_context (From Asterisk)
-; steve=steve,SIP/snom190,local,
+Following this, an outbound context and an inbound context may be
+(optionally) specified. This will cause messages to and from
+Asterisk respectively to be blocked if they contain a Context: header
+which does not match the specified value. This might be used to
+prevent a client making calls except in a predefined context.
+
+An account code may be (optionally) specified. This will
+force the Account: header to be overwritten for all commands to/from
+this client. If the Action is "Originate", then a missing Account:
+header will be added.
+
+Lastly, a "server" header will cause the proxy to behave as if the
+client has included a "Server:" header in each request packet.
+
+user=secret,channel,out_context (to Asterisk),in_context (From Asterisk),accountcode,server
+
+e.g.:
+  steve=steve,SIP/snom190,local,
+  dave=securepass,SIP/1002,,,davesaccount,daveserver
+  bill=pass
 
 ===================================================================
 On the 'Action: Challenge' Authentication Mechanism
