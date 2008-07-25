@@ -1,3 +1,38 @@
+astmanproxy (1.21.90) unstable; urgency=low
+
+  * Correcting the attribution in this file as it was never
+    intended to be published.
+  * Update code to very latest GIT based code with all
+    contributions merged.
+  * NOTE: This is effectively 1.22rc1
+
+ -- Steve Davies <steved@ipcortex.co.uk>  Fri, 25 Jul 2008 14:34:15 +0100
+
+astmanproxy (1.21-4) unstable; urgency=low
+
+  * Bug fix update to 1.21e
+
+ -- Steve Davies <steved@ipcortex.co.uk>  Wed, 31 Mar 2008 12:32:14 +0100
+
+astmanproxy (1.21-3) unstable; urgency=low
+
+  * Enhance and fix the filtering code to remember NewChannel events in
+    case they are needed later
+
+ -- Steve Davies <steved@ipcortex.co.uk>  Wed, 23 Jan 2008 16:51:56 +0000
+
+astmanproxy (1.21-2) unstable; urgency=low
+
+  * Apply 1.21d patch to source tree
+
+ -- Steve Davies <steved@ipcortex.co.uk>  Wed, 23 Jan 2008 16:51:56 +0000
+
+astmanproxy (1.21-1) unstable; urgency=low
+
+  * Initial IPCortex build
+
+ -- Steve Davies <steved@ipcortex.co.uk>  Tue, 11 Sep 2007 18:03:17 +0100
+
 astmanproxy (1.0-1) unstable; urgency=low
 
   * Initial Release.

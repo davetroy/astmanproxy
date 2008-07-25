@@ -1,12 +1,16 @@
 Source: astmanproxy
 Section: unknown
-Priority: optional
-Maintainer: Tzafrir Cohen <tzafrir.cohen@xorcom.com>
-Build-Depends: debhelper (>= 4.0.0)
-Standards-Version: 3.6.1
+Priority: extra
+Maintainer: Steve Davies <steved@ipcortex.co.uk>
+Build-Depends: debhelper (>= 5)
+Standards-Version: 3.7.2
 
 Package: astmanproxy
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
-Description: <insert up to 60 chars description>
- <insert long description, indented with spaces>
+Description: Proxy daemon for Asterisk Manager Protocol
+ Proxy daemon for Asterisk Manager Protocol. Its primary purpose is
+ to offload the use of many threads to handle multiple AMP connections
+ into a far more lightweight external daemon to improve stability and
+ scaleability. It also adds authentication, filtering, and multi-server
+ support.
