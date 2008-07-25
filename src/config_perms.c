@@ -44,8 +44,6 @@ void *add_userperm(char* username, char *userspec, struct proxy_user **pu) {
 			ccount++;
 			continue;
 		}
-		if( ccount > 0 )
-			*s = tolower(*s);
 		switch(ccount) {
 			case 0:
 			 strncat(user->secret, s, 1);
@@ -83,6 +81,8 @@ void *processperm(char *s, struct proxy_user **pu) {
 	memset (value,0,sizeof value);
 
 	do {
+		*s = tolower(*s);
+
 		if ( *s == ' ' || *s == '\t')
 			continue;
 		if ( *s == ';' || *s == '#' || *s == '\r' || *s == '\n' )
@@ -91,9 +91,9 @@ void *processperm(char *s, struct proxy_user **pu) {
 			nvstate = 1;
 			continue;
 		}
-		if (!nvstate) {
+		if (!nvstate)
 			strncat(name, s, 1);
-		} else
+		else
 			strncat(value, s, 1);
 	} while (*(s++));
 
