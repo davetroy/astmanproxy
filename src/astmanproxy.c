@@ -20,10 +20,11 @@ extern int SetProcUID( void );
 extern void *proxyaction_do(char *proxyaction, struct message *m, struct mansession *s);
 extern void *ProxyLogin(struct mansession *s, struct message *m);
 extern void *ProxyLogoff(struct mansession *s);
-extern int ValidateAction(struct message *m, struct mansession *s, int inbound);
-extern void AddToStack(struct message *m, struct mansession *s, int withbody);
+extern int  ValidateAction(struct message *m, struct mansession *s, int inbound);
+extern int  AddToStack(struct message *m, struct mansession *s, int withbody);
 extern void DelFromStack(struct message *m, struct mansession *s);
 extern void FreeStack(struct mansession *s);
+extern void ResendFromStack(char* uniqueid, struct mansession *s, struct message *m);
 
 int ConnectAsterisk(struct mansession *s);
 
@@ -178,20 +179,40 @@ void destroy_session(struct mansession *s)
 int WriteClients(struct message *m) {
 	struct mansession *c;
 	char *actionid;
-	char *action;
+	char *uniqueid;
+	char *event;
+	int valret;
 
 	c = sessions;
 
 	// We stash New Channel events in case they are filtered and need to be
-	// re-played at a later time. Hangup events also clean the list.
-	action = astman_get_header(m, "Action");
-	if( !strcasecmp( action, "Newchannel" ) ) {
+	// re-played at a later time. Hangup events also clean the list
+	// after being sent.
+	event = astman_get_header(m, "Event");
+	if( !strcasecmp( event, "Newchannel" ) ) {
 		AddToStack(m, m->session, 1);
-	} else if( !strcasecmp( action, "Hangup" ) ) {
-		DelFromStack(m, m->session);
 	}
 	while (c) {
-		if ( !c->server && m->hdrcount>1 && ValidateAction(m, c, 1) ) {
+		if ( !c->server && m->hdrcount>1 && (valret=ValidateAction(m, c, 1)) ) {
+// If VALRET > 1, then we may want to send a retrospective NewChannel before
+// writing out this event...
+// Send the retrospective Newchannel from the cache (m->session->cache) to this client (c)...
+			if( (valret & ATS_SRCUNIQUE) && m->session ) {
+				struct message m_temp;
+				memset(&m_temp, 0, sizeof(struct message) );
+				uniqueid = astman_get_header(m, "SrcUniqueID");
+				ResendFromStack(uniqueid, m->session, &m_temp);
+				m_temp.session = m->session;
+				c->output->write(c, &m_temp);
+			}
+			if( (valret & ATS_DSTUNIQUE) && m->session ) {
+				struct message m_temp;
+				memset(&m_temp, 0, sizeof(struct message) );
+				uniqueid = astman_get_header(m, "DestUniqueID");
+				ResendFromStack(uniqueid, m->session, &m_temp);
+				m_temp.session = m->session;
+				c->output->write(c, &m_temp);
+			}
 			if (c->autofilter && c->actionid) {
 				actionid = astman_get_header(m, ACTION_ID);
 				if ( !strcmp(actionid, c->actionid) )
@@ -206,6 +227,9 @@ int WriteClients(struct message *m) {
 			}
 		}
 		c = c->next;
+	}
+	if( !strcasecmp( event, "Hangup" ) ) {
+		DelFromStack(m, m->session);
 	}
 	return 1;
 }
@@ -277,6 +301,8 @@ void *session_do(struct mansession *s)
 	if (s->input->onconnect)
 		s->input->onconnect(s, &m);
 
+	// Signal settings are not always inherited by threads, so ensure we ignore this one
+	(void) signal(SIGPIPE, SIG_IGN);
 	for (;;) {
 		/* Get a complete message block from input handler */
 		memset(&m, 0, sizeof(struct message) );
@@ -341,6 +367,8 @@ void *HandleAsterisk(struct mansession *s)
 	if (! (m = malloc(sizeof(struct message))) )
 		goto leave;
 
+	// Signal settings are not always inherited by threads, so ensure we ignore this one
+	(void) signal(SIGPIPE, SIG_IGN);
 	for (;;) {
 		if (debug)
 			debugmsg("asterisk@%s: attempting read...", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr));

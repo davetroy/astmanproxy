@@ -357,12 +357,12 @@ int proxyerror_do(struct mansession *s, char *err)
    withbody = 1, saves a copy of whole message (server).
    withbody = 0, saves just the key (client).
 */
-void do_AddToStack(char *uniqueid, struct message *m, struct mansession *s, int withbody)
+int do_AddToStack(char *uniqueid, struct message *m, struct mansession *s, int withbody)
 {
 	struct mstack *prev;
 	struct mstack *t;
 
-        pthread_mutex_lock(&s->lock);
+	pthread_mutex_lock(&s->lock);
 	prev = NULL;
 	t = s->stack;
 
@@ -370,7 +370,7 @@ void do_AddToStack(char *uniqueid, struct message *m, struct mansession *s, int 
 		if( !strncmp( t->uniqueid, uniqueid, sizeof(t->uniqueid) ) )
 		{
 			pthread_mutex_unlock(&s->lock);
-			return;
+			return 0;
 		}
 		prev = t;
 		t = t->next;
@@ -405,7 +405,9 @@ void do_AddToStack(char *uniqueid, struct message *m, struct mansession *s, int 
 			if( m_size < MAX_STACKDATA && (t->message = malloc(m_size)) ) {
 				memset(t->message, 0, m_size);
 				for( i = 0; i < m->hdrcount; i++ ) {
-					strncpy( t->message, m->headers[i], m_size - j );
+					strncpy( t->message + j, m->headers[i], m_size - j );
+					*(t->message + j + strlen(m->headers[i])) = '\n';
+					j += strlen(m->headers[i]) + 1;
 				}
 			}
 		}
@@ -416,20 +418,28 @@ void do_AddToStack(char *uniqueid, struct message *m, struct mansession *s, int 
 		}
 	}
 	pthread_mutex_unlock(&s->lock);
+	return 1;
 }
-void AddToStack(struct message *m, struct mansession *s, int withbody)
+
+int AddToStack(struct message *m, struct mansession *s, int withbody)
 {
 	char *uniqueid;
+	int ret;
 
+	ret=0;
 	uniqueid = astman_get_header(m, "Uniqueid");
 	if( uniqueid[0] != '\0' )
-		do_AddToStack(uniqueid, m, s, withbody);
+		if( do_AddToStack(uniqueid, m, s, withbody) )
+			ret |= ATS_UNIQUE;
 	uniqueid = astman_get_header(m, "SrcUniqueID");
 	if( uniqueid[0] != '\0' )
-		do_AddToStack(uniqueid, m, s, withbody);
+		if( do_AddToStack(uniqueid, m, s, withbody) )
+			ret |= ATS_SRCUNIQUE;
 	uniqueid = astman_get_header(m, "DestUniqueID");
 	if( uniqueid[0] != '\0' )
-		do_AddToStack(uniqueid, m, s, withbody);
+		if( do_AddToStack(uniqueid, m, s, withbody) )
+			ret |= ATS_DSTUNIQUE;
+	return ret;
 }
 
 
@@ -445,7 +455,7 @@ void DelFromStack(struct message *m, struct mansession *s)
 	if( uniqueid[0] == '\0' )
 		return;
 
-        pthread_mutex_lock(&s->lock);
+	pthread_mutex_lock(&s->lock);
 	prev = NULL;
 	t = s->stack;
 
@@ -467,36 +477,41 @@ void DelFromStack(struct message *m, struct mansession *s)
 		prev = t;
 		t = t->next;
 	}
-        pthread_mutex_unlock(&s->lock);
+	pthread_mutex_unlock(&s->lock);
 }
 
 /* FreeStack - Removes all items from stack.
-*/
+ */
 void FreeStack(struct mansession *s)
 {
-	struct mstack *t;
+	struct mstack *t, *n;
 
-        pthread_mutex_lock(&s->lock);
+	pthread_mutex_lock(&s->lock);
 	t = s->stack;
 
 	while( t ) {
+		n = t->next;	// Grab next entry BEFORE we free the slot
 		if( t->message )
 			free( t->message );
 		free( t );
 		s->depth--;
-		t = t->next;
+		t = n;
 	}
+	if( debug && s->depth > 0 )
+		debugmsg("ALERT! Stack may have leaked %d slots!!!", s->depth);
+	if( debug )
+		debugmsg("Freed entire stack.");
 	s->stack = NULL;
-        pthread_mutex_unlock(&s->lock);
+	pthread_mutex_unlock(&s->lock);
 }
 
 /* IsInStack - If the message has a UniqueID, and it is in the stack...
-*/
+ */
 int IsInStack(char* uniqueid, struct mansession *s)
 {
 	struct mstack *t;
 
-        pthread_mutex_lock(&s->lock);
+	pthread_mutex_lock(&s->lock);
 	t = s->stack;
 
 	while( t ) {
@@ -507,8 +522,48 @@ int IsInStack(char* uniqueid, struct mansession *s)
 		}
 		t = t->next;
 	}
-        pthread_mutex_unlock(&s->lock);
+	pthread_mutex_unlock(&s->lock);
 	return 0;
+}
+
+/* ResendFromStack - We want to resend a cached message from the stack please...
+ * Look for "uniqueid" in cache of session "s", and reconstruct into message "m"
+ */
+void ResendFromStack(char* uniqueid, struct mansession *s, struct message *m)
+{
+	struct mstack *t;
+
+	if( !m )
+		return;
+	if( debug )
+		debugmsg("ResendFromStack: %s", uniqueid);
+
+	pthread_mutex_lock(&s->lock);
+	t = s->stack;
+
+	while( t ) {
+		if( !strncmp( t->uniqueid, uniqueid, sizeof(t->uniqueid) ) )
+		{
+			// Got message, pull from cache.
+			int i, h, j;
+			for( i=0,h=0,j=0; i<strlen(t->message) && i < MAX_STACKDATA-1 && h < MAX_HEADERS; i++ ) {
+				if( t->message[i] == '\n' || i-j >= 80 ) {
+					strncpy( m->headers[h], t->message + j, i-j );
+					m->headers[h][79] = '\0';
+					j = i + 1;
+					if( debug )
+						debugmsg("remade: %s", m->headers[h]);
+					h++;
+				}
+			}
+			m->hdrcount = h;
+			pthread_mutex_unlock(&s->lock);
+			return;
+		}
+		t = t->next;
+	}
+	pthread_mutex_unlock(&s->lock);
+	return;
 }
 
 int ValidateAction(struct message *m, struct mansession *s, int inbound) {
@@ -517,6 +572,9 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	char *uchannel;
 	char *ucontext;
 	char *action;
+	char *actionid;
+	char *event;
+	char *response;
 	char *account;
 	char *uniqueid;
 
@@ -529,12 +587,43 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 		ucontext = s->user.ocontext;
 	uchannel = s->user.channel;
 
+	// There is no filering, so just return quickly.
+	if( uchannel[0] == '\0' && ucontext[0] == '\0' && s->user.account[0] == '\0' )
+		return 1;
+
+	event = astman_get_header(m, "Event");
 	uniqueid = astman_get_header(m, "Uniqueid");
 	if( uniqueid[0] != '\0' && IsInStack(uniqueid, s) ) {
 		if( debug )
 			debugmsg("Message passed (uniqueid): %s already passed", uniqueid);
-		return 0;
+		if( !strcasecmp( event, "Hangup" ) )
+			DelFromStack(m, s);
+		return 1;
 	}
+	uniqueid = astman_get_header(m, "Uniqueid1");
+	if( uniqueid[0] != '\0' && IsInStack(uniqueid, s) ) {
+		if( debug )
+			debugmsg("Message passed (uniqueid1): %s already passed", uniqueid);
+		if( !strcasecmp( event, "Hangup" ) )
+			DelFromStack(m, s);
+		return 1;
+	}
+	uniqueid = astman_get_header(m, "Uniqueid2");
+	if( uniqueid[0] != '\0' && IsInStack(uniqueid, s) ) {
+		if( debug )
+			debugmsg("Message passed (uniqueid2): %s already passed", uniqueid);
+		if( !strcasecmp( event, "Hangup" ) )
+			DelFromStack(m, s);
+		return 1;
+	}
+
+	// Response packets rarely have any of the following fields included, so
+	// we will return a response if the ActionID matches our last known ActionID
+	response = astman_get_header(m, "Response");
+	actionid = astman_get_header(m, ACTION_ID);
+	if( response[0] != '\0' && actionid[0] != '\0' && !strcmp(actionid, s->actionid) )
+		return 1;
+
 
 	if( uchannel[0] != '\0' ) {
 		channel = astman_get_header(m, "Channel");
@@ -577,8 +666,8 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 			return 0;
 		}
 
-	action = astman_get_header(m, "Action");
 	if( s->user.account[0] != '\0' ) {
+		action = astman_get_header(m, "Action");
 		account = astman_get_header(m, "Account");
 		if( !strcasecmp( action, "Originate" ) ) {
 			if( debug )
@@ -595,9 +684,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	}
 
 	if( inbound )
-		AddToStack(m, s, 0);
-// TODO: Send a retrospective Newchannel from the cache (m->session->cache) to this client (s)...
-// Probably best to do this by returning an indication that this will be necessary.
+		return AddToStack(m, s, 0);
 	return 1;
 }
 

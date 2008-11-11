@@ -47,7 +47,9 @@ int _write(struct mansession *s, struct message *m) {
 
 	pthread_mutex_lock(&s->lock);
 	for (i=0; i<m->hdrcount; i++) {
-	ast_carefulwrite(s->fd, m->headers[i], strlen(m->headers[i]) , s->writetimeout);
+		if( ! strlen(m->headers[i]) )
+			continue;
+		ast_carefulwrite(s->fd, m->headers[i], strlen(m->headers[i]) , s->writetimeout);
 		ast_carefulwrite(s->fd, "\r\n", 2, s->writetimeout);
 	}
 	ast_carefulwrite(s->fd, "\r\n", 2, s->writetimeout);
