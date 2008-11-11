@@ -1,20 +1,25 @@
+1.22fork2 - Refresh of GIT fork by Steve Davies
+	Segfault amd SIGPIPE fixes (Steve Davies)
+	Several fixes to UniqueID header tracking (Steve Davies)
+	Ensure that Response: headers are not filtered out. Assumes ActionID is sent (Steve Davies)
+
 1.22fork - GIT fork by Steve Davies for code merge
-        Add "account" parameter to users file - Forces Account: header on Originate (Steve Davies)
-        Add "server" parameter to users file - equivalent to Server: line in requests (Steve Davies)
-        Allow multiple-logins by logging off when a 2nd Login action arrives (Steve Davies)
-          (Helps compatability with some Manager Panel products)
-        Include ActionID: in error responses and Login: responses (Steve Davies)
-          (ActivaTSP and some other products require this)
-        Client Timeout value was not being loaded (Wolfgang Pichler)
-        Ensures that clients see all the right channel data (Steve Davies)
-            Each server records a stack of NewChannel events
-            Each client records which NewChannel events have been passed
-            If a filtered session bridges channels, ensure that related NewChannel(s) are sent
+	Add "account" parameter to users file - Forces Account: header on Originate (Steve Davies)
+	Add "server" parameter to users file - equivalent to Server: line in requests (Steve Davies)
+	Allow multiple-logins by logging off when a 2nd Login action arrives (Steve Davies)
+	  (Helps compatability with some Manager Panel products)
+	Include ActionID: in error responses and Login: responses (Steve Davies)
+	  (ActivaTSP and some other products require this)
+	Client Timeout value was not being loaded (Wolfgang Pichler)
+	Ensures that clients see all the right channel data (Steve Davies)
+	  Each server records a stack of NewChannel events
+	  Each client records which NewChannel events have been passed
+	  If a filtered session bridges channels, ensure that related NewChannel(s) are sent
 
 1.22pre current trunk
 
 1.21	Major code formatting cleanup and official release of 1.21pre (trunk)
-        Documentation overhaul & cleanup
+	Documentation overhaul & cleanup
 
 1.21pre	Added URLDecode routine to http.c to deal with URL-encoded GET/POST data
 	Fixed xml.c to better deal with cli/unparsed data

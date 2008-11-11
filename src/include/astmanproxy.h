@@ -30,6 +30,11 @@
 #define MAX_STACK	 1024
 #define MAX_STACKDATA	 32768
 
+#define ATS_RESERVED    1
+#define ATS_UNIQUE      2
+#define ATS_SRCUNIQUE   4
+#define ATS_DSTUNIQUE   8
+
 #define PROXY_BANNER	"Asterisk Call Manager Proxy"
 #define PROXY_SHUTDOWN  "ProxyMessage: Proxy Shutting Down"
 #define ACTION_ID		"ActionID"
