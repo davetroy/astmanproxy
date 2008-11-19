@@ -343,7 +343,7 @@ void *session_do(struct mansession *s)
 				if ( !WriteAsterisk(&m) )
 					break;
 			} else {
-				SendError(s, "Action Filtered", action);
+				SendError(s, "Action Filtered", actionid);
 			}
 		} else if (res < 0)
 			break;
