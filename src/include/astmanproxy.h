@@ -59,6 +59,7 @@ struct proxy_user {
 	char ocontext[80];
 	char account[80];
 	char server[80];
+	char more_events[2];
 	struct proxy_user *next;
 };
 

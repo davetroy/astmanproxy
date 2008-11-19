@@ -105,10 +105,16 @@ void *ProxySetAutoFilter(struct mansession *s, struct message *m) {
 	value = astman_get_header(m, "AutoFilter");
 	if ( !strcasecmp(value, "on") )
 		i = 1;
+	else if ( !strcasecmp(value, "unique") )
+		i = 2;
 	else
 		i = 0;
 	pthread_mutex_lock(&s->lock);
 	s->autofilter = i;
+	if( i == 2 )
+	  snprintf(s->actionid, MAX_LEN - 20, "amp%d-", s->fd);
+	else
+	  s->actionid[0] = '\0';
 	pthread_mutex_unlock(&s->lock);
 
 	memset(&mo, 0, sizeof(struct message));
@@ -167,7 +173,7 @@ void *ProxyLogin(struct mansession *s, struct message *m) {
 	pthread_mutex_lock(&userslock);
 	pu = pc.userlist;
 	while( pu ) {
-	if ( !strcmp(user, pu->username) ) {
+		if ( !strcmp(user, pu->username) ) {
 			if (!AuthMD5(key, s->challenge, pu->secret) || !strcmp(secret, pu->secret) ) {
 				AddHeader(&mo, "Response: Success");
 				AddHeader(&mo, "Message: Authentication accepted");
@@ -179,6 +185,7 @@ void *ProxyLogin(struct mansession *s, struct message *m) {
 				strcpy(s->user.ocontext, pu->ocontext);
 				strcpy(s->user.account, pu->account);
 				strcpy(s->user.server, pu->server);
+				strcpy(s->user.more_events, pu->more_events);
 				pthread_mutex_unlock(&s->lock);
 				if( debug )
 					debugmsg("Login as: %s", user);
@@ -351,7 +358,7 @@ int proxyerror_do(struct mansession *s, char *err)
 }
 
 /* [do_]AddToStack - Stores an event in a stack for later repetition.
-		indexted on UniqueID.
+		indexed on UniqueID.
    If SrcUniqueID / DestUniqueID are present, store against both.
    If a record already exists, do nothing.
    withbody = 1, saves a copy of whole message (server).
@@ -420,25 +427,37 @@ int do_AddToStack(char *uniqueid, struct message *m, struct mansession *s, int w
 	pthread_mutex_unlock(&s->lock);
 	return 1;
 }
-
 int AddToStack(struct message *m, struct mansession *s, int withbody)
 {
 	char *uniqueid;
-	int ret;
+	int ret, absent;
 
 	ret=0;
+	absent=0;
+
 	uniqueid = astman_get_header(m, "Uniqueid");
-	if( uniqueid[0] != '\0' )
+	if( uniqueid[0] != '\0' ) {
 		if( do_AddToStack(uniqueid, m, s, withbody) )
 			ret |= ATS_UNIQUE;
+	} else
+		absent++;
+
 	uniqueid = astman_get_header(m, "SrcUniqueID");
-	if( uniqueid[0] != '\0' )
+	if( uniqueid[0] != '\0' ) {
 		if( do_AddToStack(uniqueid, m, s, withbody) )
 			ret |= ATS_SRCUNIQUE;
+	} else
+		absent++;
+
 	uniqueid = astman_get_header(m, "DestUniqueID");
-	if( uniqueid[0] != '\0' )
+	if( uniqueid[0] != '\0' ) {
 		if( do_AddToStack(uniqueid, m, s, withbody) )
 			ret |= ATS_DSTUNIQUE;
+	} else
+		absent++;
+
+	if( s->user.more_events[0] != '\0' && absent == 3 )
+		return 1;	// Want more/anonymous events
 	return ret;
 }
 
@@ -494,14 +513,14 @@ void FreeStack(struct mansession *s)
 		if( t->message )
 			free( t->message );
 		free( t );
-		s->depth--;
 		t = n;
+		s->depth--;
 	}
+	s->stack = NULL;
 	if( debug && s->depth > 0 )
 		debugmsg("ALERT! Stack may have leaked %d slots!!!", s->depth);
 	if( debug )
 		debugmsg("Freed entire stack.");
-	s->stack = NULL;
 	pthread_mutex_unlock(&s->lock);
 }
 
@@ -535,6 +554,7 @@ void ResendFromStack(char* uniqueid, struct mansession *s, struct message *m)
 
 	if( !m )
 		return;
+
 	if( debug )
 		debugmsg("ResendFromStack: %s", uniqueid);
 
@@ -621,9 +641,12 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	// we will return a response if the ActionID matches our last known ActionID
 	response = astman_get_header(m, "Response");
 	actionid = astman_get_header(m, ACTION_ID);
-	if( response[0] != '\0' && actionid[0] != '\0' && !strcmp(actionid, s->actionid) )
-		return 1;
-
+	if( response[0] != '\0' && actionid[0] != '\0' && !strcmp(actionid, s->actionid) ) {
+		if (s->autofilter < 2 && !strcmp(actionid, s->actionid))
+			return 1;
+		else if ( !strncmp(actionid, s->actionid, strlen(s->actionid)) )
+			return 1;
+	}
 
 	if( uchannel[0] != '\0' ) {
 		channel = astman_get_header(m, "Channel");
@@ -683,8 +706,13 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 		}
 	}
 
-	if( inbound )
-		return AddToStack(m, s, 0);
+	if( inbound ) {
+		int res;
+		res = AddToStack(m, s, 0);
+		if( debug > 5 )
+			debugmsg("AddToStack returned %d", res);
+		return res;
+	}
 	return 1;
 }
 

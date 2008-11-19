@@ -65,6 +65,9 @@ void *add_userperm(char* username, char *userspec, struct proxy_user **pu) {
 			case 5:
 			 strncat(user->server, s, 1);
 			 break;
+			case 6:
+			 user->more_events[0] = 'y';	// Any non-null entry
+			 break;
 		}
 	} while (*(s++));
 
@@ -91,9 +94,9 @@ void *processperm(char *s, struct proxy_user **pu) {
 			nvstate = 1;
 			continue;
 		}
-		if (!nvstate) {
+		if (!nvstate)
 			strncat(name, s, 1);
-		} else
+		else
 			strncat(value, s, 1);
 	} while (*(s++));
 

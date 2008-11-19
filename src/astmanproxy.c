@@ -197,26 +197,33 @@ int WriteClients(struct message *m) {
 // If VALRET > 1, then we may want to send a retrospective NewChannel before
 // writing out this event...
 // Send the retrospective Newchannel from the cache (m->session->cache) to this client (c)...
-			if( (valret & ATS_SRCUNIQUE) && m->session ) {
+ 			if( (valret & ATS_SRCUNIQUE) && m->session ) {
 				struct message m_temp;
 				memset(&m_temp, 0, sizeof(struct message) );
 				uniqueid = astman_get_header(m, "SrcUniqueID");
 				ResendFromStack(uniqueid, m->session, &m_temp);
 				m_temp.session = m->session;
 				c->output->write(c, &m_temp);
-			}
-			if( (valret & ATS_DSTUNIQUE) && m->session ) {
+ 			}
+ 			if( (valret & ATS_DSTUNIQUE) && m->session ) {
 				struct message m_temp;
 				memset(&m_temp, 0, sizeof(struct message) );
 				uniqueid = astman_get_header(m, "DestUniqueID");
 				ResendFromStack(uniqueid, m->session, &m_temp);
 				m_temp.session = m->session;
 				c->output->write(c, &m_temp);
-			}
+ 			}
 			if (c->autofilter && c->actionid) {
 				actionid = astman_get_header(m, ACTION_ID);
-				if ( !strcmp(actionid, c->actionid) )
+				if ( c->autofilter == 1 && !strcmp(actionid, c->actionid) )
+// Original AutoFilter
 					c->output->write(c, m);
+				else if ( c->autofilter == 2 && !strncmp(actionid, c->actionid, strlen(c->actionid)) ) {
+// New AutoFilter, actionid like "ast123-XX"
+					memmove( actionid, actionid+strlen(c->actionid), strlen(actionid)+1-strlen(c->actionid));
+					c->output->write(c, m);
+				} else if (debug > 5)
+					debugmsg("ActionID Filtered a message to a client\n");
 			} else
 				c->output->write(c, m);
 
@@ -225,7 +232,8 @@ int WriteClients(struct message *m) {
 				c->outputcomplete = 1;
 				pthread_mutex_unlock(&c->lock);
 			}
-		}
+		} else if ( !c->server && m->hdrcount>1 && !valret && debug > 5)
+			debugmsg("Validate Filtered a message to a client");
 		c = c->next;
 	}
 	if( !strcasecmp( event, "Hangup" ) ) {
@@ -285,7 +293,12 @@ int WriteAsterisk(struct message *m) {
 void *setactionid(char *actionid, struct message *m, struct mansession *s)
 {
 	pthread_mutex_lock(&s->lock);
-	strncpy(s->actionid, actionid, MAX_LEN);
+	if( s->autofilter < 2 ) {	// Either save ActionID
+		strncpy(s->actionid, actionid, MAX_LEN);
+	} else if( strlen(s->actionid) + strlen(actionid) < MAX_LEN ) {	// Or modify it
+		memmove(actionid+strlen(s->actionid), actionid, strlen(actionid)+strlen(s->actionid));
+		strncpy(actionid, s->actionid, strlen(s->actionid));
+	}
 	pthread_mutex_unlock(&s->lock);
 
 	return 0;
@@ -300,12 +313,20 @@ void *session_do(struct mansession *s)
 
 	if (s->input->onconnect)
 		s->input->onconnect(s, &m);
+	if (s->autofilter == 2) {
+		pthread_mutex_lock(&s->lock);
+		snprintf(s->actionid, MAX_LEN - 20, "amp%d-", s->fd);
+		if (debug > 3)
+			debugmsg("Setting actionID root to %s for new connection", s->actionid);
+		pthread_mutex_unlock(&s->lock);
+	}
 
 	// Signal settings are not always inherited by threads, so ensure we ignore this one
+	// as it is handled through error returns
 	(void) signal(SIGPIPE, SIG_IGN);
 	for (;;) {
 		/* Get a complete message block from input handler */
-		memset(&m, 0, sizeof(struct message) );
+		memset( &m, 0, sizeof(struct message) );
 		if (debug > 3)
 			debugmsg("calling %s_read...", s->input->formatname);
 		res = s->input->read(s, &m);

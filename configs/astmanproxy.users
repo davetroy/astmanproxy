@@ -11,8 +11,8 @@
 ; sending commands. It must be an exact match to the hostname/ip address
 ; in the .conf configuration file.
 ;
-; user=secret,[channel],[out_context (to Asterisk)],[in_context (From Asterisk)],[accountcode],[server]
+; user=secret,[channel],[out_context (to Asterisk)],[in_context (From Asterisk)],[accountcode],[server],[more_events]
 ;
 ; steve=steve,SIP/snom190,local,
-; dave=securepass,SIP/1002,,,davesaccount
+; dave=securepass,SIP/1002,,,davesaccount,,y
 ; bill=pass

@@ -1,4 +1,8 @@
-1.22fork2 - Refresh of GIT fork by Steve Davies
+1.22pre081119 - Refresh of GIT fork by Steve Davies
+	Add AutoFilter=unique option for better ActionID tracking (Steve Davies)
+	Add more_events option for users to get more "noise" (Steve Davies)
+
+1.22pre081111 - Refresh of GIT fork by Steve Davies
 	Segfault amd SIGPIPE fixes (Steve Davies)
 	Several fixes to UniqueID header tracking (Steve Davies)
 	Ensure that Response: headers are not filtered out. Assumes ActionID is sent (Steve Davies)

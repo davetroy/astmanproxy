@@ -93,7 +93,7 @@ OutputFormat: (standard|xml)
    Sets the output format on a per-client basis
 
 ProxyAction: SetAutoFilter
-AutoFilter: (on|off)
+AutoFilter: (on|off|unique)
    Sets the AutoFilter property on a per-client basis
    (See autofiltering section below)
 
@@ -167,10 +167,10 @@ AstManProxy Autofiltering Functionality
 
 One of the most powerful features of AstManProxy is its ability to
 automatically filter output on a per-client basis.  It can do this
-with its Autofilter capability, which can be set 'on' in the config
-file or enabled via the ProxyAction: SetAutoFilter function.
+with its Autofilter capability, which can be set 'on'/'unique' in
+the config file or enabled via the ProxyAction: SetAutoFilter function.
 
-With autofiltering enabled, each client only receives output containing
+With autofiltering 'on', each client only receives output containing
 the "ActionID" parameter it has set most recently.  This is useful
 for single atomic requests into asterisk from a client, such as
 when creating a simple UI to inject a command.
@@ -192,6 +192,32 @@ Replace Ping with Originate and Pong with Success and you can see
 how this same mechanism can be used to quickly query asterisk
 box(es), initiate calls, etc, without your client having to worry
 with filtering a lot of unrelated output.
+
+A more advanced verion of this facility is to set autofiltering to
+'unique'. This causes astmanproxy to alter the ActionID on the way
+to Asterisk, and undo that change on the way back.
+
+For example the exchange:
+
+> Action: Ping
+> ActionID: foo
+>
+
+< Response: Pong
+< ActionID: foo
+<
+
+Might be seen by Asterisk as:
+
+> Action: Ping
+> ActionID: amp7-foo
+>
+
+< Response: Pong
+< ActionID: amp7-foo
+<
+
+and the "amp7-" prefix is created uniquely for each client connection.
 
 ===================================================================
 On the astmanproxy.users output filtering functionality
@@ -216,10 +242,14 @@ force the Account: header to be overwritten for all commands to/from
 this client. If the Action is "Originate", then a missing Account:
 header will be added.
 
-Lastly, a "server" header will cause the proxy to behave as if the
+A "server" option will cause the proxy to behave as if the
 client has included a "Server:" header in each request packet.
 
-user=secret,channel,out_context (to Asterisk),in_context (From Asterisk),accountcode,server
+Any non-empty string provided in "more_events" will allow the passing
+of non-filterable events to all clients. The default behaviour is to
+block these packets if any form of filtering is requested.
+
+user=secret,channel,out_context (to Asterisk),in_context (From Asterisk),accountcode,server,more_events
 
 e.g.:
   steve=steve,SIP/snom190,local,

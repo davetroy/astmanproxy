@@ -134,9 +134,14 @@ void *processline(char *s) {
 		strcpy(pc.proc_group, value);
 	else if (!strcmp(name,"logfile") )
 		strcpy(pc.logfile, value);
-	else if (!strcmp(name,"autofilter") )
-		pc.autofilter = strcmp(value,"on") ? 0 : 1;
-	else if (!strcmp(name,"outputformat") )
+	else if (!strcmp(name,"autofilter") ) {
+		if( ! strcmp(value,"on") )
+			pc.autofilter = 1;
+		else if( ! strcmp(value,"unique") )
+			pc.autofilter = 2;
+		else
+			pc.autofilter = 0;
+	} else if (!strcmp(name,"outputformat") )
 		strcpy(pc.outputformat, value);
 	else if (!strcmp(name,"inputformat") )
 		strcpy(pc.inputformat, value);
