@@ -615,7 +615,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	uniqueid = astman_get_header(m, "Uniqueid");
 	if( uniqueid[0] != '\0' && IsInStack(uniqueid, s) ) {
 		if( debug )
-			debugmsg("Message passed (uniqueid): %s already passed", uniqueid);
+			debugmsg("Message passed (uniqueid): %s already allowed", uniqueid);
 		if( !strcasecmp( event, "Hangup" ) )
 			DelFromStack(m, s);
 		return 1;
@@ -623,7 +623,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	uniqueid = astman_get_header(m, "Uniqueid1");
 	if( uniqueid[0] != '\0' && IsInStack(uniqueid, s) ) {
 		if( debug )
-			debugmsg("Message passed (uniqueid1): %s already passed", uniqueid);
+			debugmsg("Message passed (uniqueid1): %s already allowed", uniqueid);
 		if( !strcasecmp( event, "Hangup" ) )
 			DelFromStack(m, s);
 		return 1;
@@ -631,7 +631,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	uniqueid = astman_get_header(m, "Uniqueid2");
 	if( uniqueid[0] != '\0' && IsInStack(uniqueid, s) ) {
 		if( debug )
-			debugmsg("Message passed (uniqueid2): %s already passed", uniqueid);
+			debugmsg("Message passed (uniqueid2): %s already allowed", uniqueid);
 		if( !strcasecmp( event, "Hangup" ) )
 			DelFromStack(m, s);
 		return 1;
