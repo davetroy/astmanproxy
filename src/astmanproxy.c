@@ -218,6 +218,8 @@ int WriteClients(struct message *m) {
 				if ( c->autofilter == 1 && !strcmp(actionid, c->actionid) )
 // Original AutoFilter
 					c->output->write(c, m);
+				else if ( c->autofilter == 2 && *actionid == '\0' )
+					c->output->write(c, m);
 				else if ( c->autofilter == 2 && !strncmp(actionid, c->actionid, strlen(c->actionid)) ) {
 // New AutoFilter, actionid like "ast123-XX"
 					memmove( actionid, actionid+strlen(c->actionid), strlen(actionid)+1-strlen(c->actionid));
