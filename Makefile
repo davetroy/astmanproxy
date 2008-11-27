@@ -3,7 +3,7 @@
 OSARCH=$(shell uname -s)
 OSREV=$(shell uname -r)
 
-VERSION := 1.22pre081119
+VERSION := 1.22pre081127
 DESTDIR ?=
 CONFDIR:=/etc/asterisk
 CONFDIR_REAL := $(DESTDIR)/etc/asterisk
@@ -27,7 +27,7 @@ SOBJS := $(HANDLERS:%=%.so)
 LIBS := -lssl
 
 # Add -g below for debug/GDB symbols
-CFLAGS:=-Wall -O2 -D_REENTRANT -fPIC -Isrc/include -I/usr/include/openssl
+CFLAGS:=-Wall -O2 -D_REENTRANT -D_GNU_SOURCE -fPIC -Isrc/include -I/usr/include/openssl
 
 ifeq (${OSARCH},Darwin)  
   LIBS+=-lresolv

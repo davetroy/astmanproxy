@@ -500,7 +500,7 @@ void DelFromStack(struct message *m, struct mansession *s)
 }
 
 /* FreeStack - Removes all items from stack.
- */
+*/
 void FreeStack(struct mansession *s)
 {
 	struct mstack *t, *n;
@@ -597,6 +597,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	char *response;
 	char *account;
 	char *uniqueid;
+	char *tmp;
 
 	if( pc.authrequired && !s->authenticated )
 		return 0;
@@ -648,10 +649,36 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 			return 1;
 	}
 
+	action = astman_get_header(m, "Action");
 	if( uchannel[0] != '\0' ) {
 		channel = astman_get_header(m, "Channel");
+
 		if( channel[0] != '\0' ) {	// We have a Channel: header, so filter on it.
 			if( strncasecmp( channel, uchannel, strlen(uchannel) ) ) {
+// Possible exceptions to the filter if filterlocal is set
+				if( pc.filterlocal && !inbound && !strcasecmp( action, "Originate" ) && !strcasecmp( channel, "Local/" ) ) {
+					if( pc.filterlocal == 1 ) {
+						// Allow all Local/ channels
+						if( debug > 3 )
+							debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
+					} else if( pc.filterlocal == 2 ) {	// Allow with @ocontext
+						if( !(tmp=strchr(channel, '@')) || strcmp( (tmp+1), ucontext ) ) {
+							if( debug ) {
+								debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
+								debugmsg("filterlocal ->(context): %s != @%s", tmp?tmp:"", ucontext);
+							}
+							return 0;
+						}
+					} else if( pc.filterlocal == 3 ) {	// Set @ocontext and allow
+						if( (tmp=strchrnul(channel, '@')) ) {
+							*tmp='@';
+							strcpy( (tmp+1), ucontext );
+							if( debug > 3 )
+								debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
+						}
+					}
+				}
+				// filterlocal does not apply
 				if( debug )
 					debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
 				return 0;
@@ -682,15 +709,15 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	}
 
 	context = astman_get_header(m, "Context");
-	if( context[0] != '\0' && ucontext[0] != '\0' )
-		if( strcasecmp( context, ucontext ) ) {
+	if( context[0] != '\0' && ucontext[0] != '\0' ) {
+		if( strcmp( context, ucontext ) ) {
 			if( debug )
 				debugmsg("Message filtered (ctxt): %s != %s", context, ucontext);
 			return 0;
 		}
+	}
 
 	if( s->user.account[0] != '\0' ) {
-		action = astman_get_header(m, "Action");
 		account = astman_get_header(m, "Account");
 		if( !strcasecmp( action, "Originate" ) ) {
 			if( debug )

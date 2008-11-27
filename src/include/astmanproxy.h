@@ -71,6 +71,7 @@ struct proxyconfig {
 	char inputformat[80];
 	char outputformat[80];
 	int autofilter;			/* enable autofiltering? */
+	int filterlocal;			/* enable unfiltered Local/ dialling? */
 	int authrequired;			/* is authentication required? */
 	char key[80];
 	char proc_user[40];
