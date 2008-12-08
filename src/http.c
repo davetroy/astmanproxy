@@ -170,9 +170,10 @@ int _read(struct mansession *s, struct message *m) {
 	/* for http, don't do get_input forever */
 	for (;;) {
 
-		if (s->inputcomplete && !s->outputcomplete)
+		if (s->inputcomplete && !s->outputcomplete) {
+			sleep(1);
 			continue;
-		else if (s->inputcomplete && s->outputcomplete)
+		} else if (s->inputcomplete && s->outputcomplete)
 			return -1;
 
 		memset(line, 0, sizeof line);
