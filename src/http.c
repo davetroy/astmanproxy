@@ -161,6 +161,7 @@ int _read(struct mansession *s, struct message *m) {
 	/* No HTTP Input may be longer than BUFSIZE */
 
 	char line[MAX_LEN], method[10], formdata[MAX_LEN], status[15];
+	char *tmp;
 	int res, clength = 0;
 
 	memset(method, 0, sizeof method);
@@ -190,14 +191,14 @@ int _read(struct mansession *s, struct message *m) {
 				if ( !strncmp(line,"POST",4) ) {
 					strncpy(method, line, 4);
 				} else if ( !strncmp(line,"GET",3)) {
-				if ( strlen(line) > 14 ) {
-					/* GET / HTTP/1.1 ---- this is bad */
+					if ( strlen(line) > 14 && (tmp = strcasestr(line, " HTTP")) ) {
+						/* GET / HTTP/1.1 ---- this is bad */
 						/* GET /?Action=Ping&ActionID=Foo HTTP/1.1 */
 						strncpy(method, line, 3);
-						memcpy(formdata, line+6, strstr(line, " HTTP")-line-6);
-					sprintf(status, "200 OK");
-				} else
-					sprintf(status, "501 Not Implemented");
+						memcpy(formdata, line+6, tmp-line-6);
+						sprintf(status, "200 OK");
+					} else
+						sprintf(status, "501 Not Implemented");
 				}
 			}
 		} else if (res == 0) {
