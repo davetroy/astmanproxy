@@ -40,6 +40,7 @@ pthread_mutex_t debuglock;
 static int asock = -1;
 FILE *proxylog;
 int debug = 0;
+int foreground = 0;
 
 void hup(int sig) {
 	if (proxylog) {
@@ -136,6 +137,7 @@ void Usage( void )
 {
 	printf("Usage: astmanproxy [-d|-h|-v]\n");
 	printf(" -d : Start in Debug Mode\n");
+	printf(" -f : Run in foreground. Don't fork\n");
 	printf(" -h : Displays this message\n");
 	printf(" -v : Displays version information\n");
 	printf("Start with no options to run as daemon\n");
@@ -690,11 +692,15 @@ int main(int argc, char *argv[])
 	char i;
 
 	/* Figure out if we are in debug mode, handle other switches */
-	while (( i = getopt( argc, argv, "dhv" ) ) != EOF )
+	while (( i = getopt( argc, argv, "dhvf" ) ) != EOF )
 	{
 		switch( i ) {
+			case 'f':
+				foreground=1;
+				break;
 			case 'd':
 				debug++;
+				foreground=1;
 				break;
 			case 'h':
 				Usage();
@@ -721,7 +727,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* If we are not in debug mode, then fork to background */
-	if (!debug) {
+	if (!debug && !foreground) {
 		if ( (pid = fork()) < 0)
 			exit( 1 );
 		else if ( pid > 0)
