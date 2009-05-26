@@ -598,6 +598,8 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	char *account;
 	char *uniqueid;
 	char *tmp;
+	char *cheaders[] = {"Channel","Channel1","Channel2","Source","Destination","DestinationChannel","ChannelCalling",NULL};
+	int i, cmatched;
 
 	if( pc.authrequired && !s->authenticated )
 		return 0;
@@ -651,60 +653,52 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 
 	action = astman_get_header(m, "Action");
 	if( uchannel[0] != '\0' ) {
-		channel = astman_get_header(m, "Channel");
+		if( debug )
+			debugmsg("Attempting filter using channel: %s", uchannel);
+		cmatched = 0;
+		for( i=0; cheaders[i] != NULL && !cmatched; i++ ) {
+			channel = astman_get_header(m, cheaders[i]);
+			if( channel[0] != '\0' )
+				continue;	// No header by that name.
 
-		if( channel[0] != '\0' ) {	// We have a Channel: header, so filter on it.
-			if( strncasecmp( channel, uchannel, strlen(uchannel) ) ) {
-// Possible exceptions to the filter if filterlocal is set
-				if( pc.filterlocal && !inbound && !strcasecmp( action, "Originate" ) && !strcasecmp( channel, "Local/" ) ) {
-					if( pc.filterlocal == 1 ) {
-						// Allow all Local/ channels
+			if( !strncasecmp( channel, uchannel, strlen(uchannel) )) {	// We have a Channel: header, so filter on it.
+				if( debug > 3 )
+					debugmsg("Message not filtered (chan): %s due to match", channel);
+				cmatched++;
+			} else if( pc.filterlocal && !inbound && !strcasecmp( action, "Originate" ) && !strcasecmp( channel, "Local/" ) ) {
+				// Exceptions even if we don't match
+				if( pc.filterlocal == 1 ) {
+					// Allow all Local/ channels
+					if( debug > 3 )
+						debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
+					cmatched++;
+				} else if( pc.filterlocal == 2 ) {	// Allow with @ocontext
+					if( !(tmp=strchr(channel, '@')) || strcmp( (tmp+1), ucontext ) ) {
+						// if( debug ) {
+						// 	debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
+						// 	debugmsg("filterlocal ->(context): %s != @%s", tmp?tmp:"", ucontext);
+						// }
+						// NOT MATCHED
+					} else {
 						if( debug > 3 )
 							debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
-					} else if( pc.filterlocal == 2 ) {	// Allow with @ocontext
-						if( !(tmp=strchr(channel, '@')) || strcmp( (tmp+1), ucontext ) ) {
-							if( debug ) {
-								debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
-								debugmsg("filterlocal ->(context): %s != @%s", tmp?tmp:"", ucontext);
-							}
-							return 0;
-						}
-					} else if( pc.filterlocal == 3 ) {	// Set @ocontext and allow
-						if( (tmp=strchrnul(channel, '@')) ) {
-							*tmp='@';
-							strcpy( (tmp+1), ucontext );
-							if( debug > 3 )
-								debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
-						}
+						cmatched++;
 					}
-				}
-				// filterlocal does not apply
-				if( debug )
-					debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
-				return 0;
-			}
-		} else {			// No Channel: header, what about Channel1: or Channel2: ?
-			channel1 = astman_get_header(m, "Channel1");
-			channel2 = astman_get_header(m, "Channel2");
-			if( channel1[0] != '\0' || channel2[0] != '\0' ) {
-				if( !(strncasecmp( channel1, uchannel, strlen(uchannel) ) == 0 ||
-					  strncasecmp( channel2, uchannel, strlen(uchannel) ) == 0) ) {
-					if( debug )
-						debugmsg("Message filtered (chan1/2): %s/%s != %s", channel1, channel2, uchannel);
-					return 0;
-				}
-			} else {		// No? What about Source: and Destination:
-				channel1 = astman_get_header(m, "Source");
-				channel2 = astman_get_header(m, "Destination");
-				if( channel1[0] != '\0' || channel2[0] != '\0' ) {
-					if( !(strncasecmp( channel1, uchannel, strlen(uchannel) ) == 0 ||
-						  strncasecmp( channel2, uchannel, strlen(uchannel) ) == 0) ) {
-						if( debug )
-							debugmsg("Message filtered (src/dst chan): %s/%s != %s", channel1, channel2, uchannel);
-						return 0;
+				} else if( pc.filterlocal == 3 ) {	// Set @ocontext and allow
+					if( (tmp=strchrnul(channel, '@')) ) {
+						*tmp='@';
+						strcpy( (tmp+1), ucontext );
+						if( debug > 3 )
+							debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
+						cmatched++;
 					}
 				}
 			}
+		}
+		if( !cmatched ) {
+			if( debug )
+				debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
+			return 0;
 		}
 	}
 
