@@ -599,7 +599,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	char *uniqueid;
 	char *tmp;
 	char *cheaders[] = {"Channel","Channel1","Channel2","Source","Destination","DestinationChannel","ChannelCalling",NULL};
-	int i, cmatched;
+	int i, cmatched, cfound;
 
 	if( pc.authrequired && !s->authenticated )
 		return 0;
@@ -656,11 +656,13 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 		if( debug )
 			debugmsg("Attempting filter using channel: %s", uchannel);
 		cmatched = 0;
+		cfound = 0;
 		for( i=0; cheaders[i] != NULL && !cmatched; i++ ) {
 			channel = astman_get_header(m, cheaders[i]);
 			if( channel[0] != '\0' )
 				continue;	// No header by that name.
 
+			cfound++;
 			if( !strncasecmp( channel, uchannel, strlen(uchannel) )) {	// We have a Channel: header, so filter on it.
 				if( debug > 3 )
 					debugmsg("Message not filtered (chan): %s due to match", channel);
@@ -695,7 +697,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 				}
 			}
 		}
-		if( !cmatched ) {
+		if( cfound && !cmatched ) {	// We find at least one matchable header, but no matches.
 			if( debug )
 				debugmsg("Message filtered (chan): %s != %s", channel || "ERR", uchannel);
 			return 0;
