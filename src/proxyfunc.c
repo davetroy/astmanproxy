@@ -699,7 +699,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 		}
 		if( cfound && !cmatched ) {	// We find at least one matchable header, but no matches.
 			if( debug )
-				debugmsg("Message filtered (chan): %s != %s", channel || "ERR", uchannel);
+				debugmsg("Message filtered %d channel headers != %s", cfound, uchannel);
 			return 0;
 		}
 	}
