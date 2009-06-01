@@ -659,7 +659,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 		cfound = 0;
 		for( i=0; cheaders[i] != NULL && !cmatched; i++ ) {
 			channel = astman_get_header(m, cheaders[i]);
-			if( channel[0] != '\0' )
+			if( channel[0] == '\0' )
 				continue;	// No header by that name.
 
 			cfound++;
