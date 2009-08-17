@@ -704,7 +704,7 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 
 	context = astman_get_header(m, "Context");
 	if( context[0] != '\0' && ucontext[0] != '\0' ) {
-		if( strcmp( context, ucontext ) ) {
+		if( strcasecmp( context, ucontext ) ) {
 			if( debug )
 				debugmsg("Message filtered (ctxt): %s != %s", context, ucontext);
 			return 0;
