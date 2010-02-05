@@ -25,8 +25,8 @@
 #endif
 
 #define BUFSIZE		 1024
-#define MAX_HEADERS	 256
-#define MAX_LEN		 1024
+#define MAX_HEADERS	 128
+#define MAX_LEN		 16384
 #define MAX_STACK	 1024
 #define MAX_STACKDATA	 32768
 

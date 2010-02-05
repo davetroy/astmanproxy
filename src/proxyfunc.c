@@ -89,9 +89,9 @@ int ProxyChallenge(struct mansession *s, struct message *m) {
 
 	memset(&mo, 0, sizeof(struct message));
 	AddHeader(&mo, "Response: Success");
-	AddHeader(&mo, "Challenge: %s", s->challenge);
 	if( actionid && strlen(actionid) )
 		AddHeader(&mo, "ActionID: %s", actionid);
+	AddHeader(&mo, "Challenge: %s", s->challenge);
 
 	s->output->write(s, &mo);
 	return 0;
@@ -208,13 +208,17 @@ void *ProxyLogin(struct mansession *s, struct message *m) {
 	return 0;
 }
 
-void *ProxyLogoff(struct mansession *s) {
-	struct message m;
+void *ProxyLogoff(struct mansession *s, struct message *m) {
+	struct message mo;
+	char *actionid = actionid = astman_get_header(m, "ActionID");
 
-	memset(&m, 0, sizeof(struct message));
-	AddHeader(&m, "Goodbye: Y'all come back now, y'hear?");
+	memset(&mo, 0, sizeof(struct message));
+	AddHeader(&mo, "Response: Goodbye");
+	AddHeader(&mo, "Message: Thanks for all the fish.");
+	if( actionid && strlen(actionid) > 0 )
+		AddHeader(&mo, "ActionID: %s", actionid);
 
-	s->output->write(s, &m);
+	s->output->write(s, &mo);
 
 	destroy_session(s);
 	if (debug)
@@ -337,7 +341,7 @@ void *proxyaction_do(char *proxyaction, struct message *m, struct mansession *s)
 	else if (!strcasecmp(proxyaction,"ListIOHandlers"))
 		ProxyListIOHandlers(s);
 	else if (!strcasecmp(proxyaction,"Logoff"))
-		ProxyLogoff(s);
+		ProxyLogoff(s, m);
 	else
 	proxyerror_do(s, "Invalid Proxy Action");
 
