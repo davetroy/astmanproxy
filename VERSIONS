@@ -1,3 +1,7 @@
+1.24pre090304 - Add -f option to run in foreground
+	support for Asterisk 1.6.x Channel: headers (Sebastian)
+	Re-factor the Channel: header matching code for simplicity (Steve Davies)
+
 1.22pre081119 - Refresh of GIT fork by Steve Davies
 	Add AutoFilter=unique option for better ActionID tracking (Steve Davies)
 	Add more_events option for users to get more "noise" (Steve Davies)

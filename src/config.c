@@ -141,6 +141,15 @@ void *processline(char *s) {
 			pc.autofilter = 2;
 		else
 			pc.autofilter = 0;
+	} else if (!strcmp(name,"filterlocal") ) {
+		if( ! strcmp(value,"allow") )
+			pc.filterlocal = 1;
+		else if( ! strcmp(value,"allowwith") )
+			pc.filterlocal = 2;
+		else if( ! strcmp(value,"enforce") )
+			pc.filterlocal = 3;
+		else
+			pc.filterlocal = 0;
 	} else if (!strcmp(name,"outputformat") )
 		strcpy(pc.outputformat, value);
 	else if (!strcmp(name,"inputformat") )
