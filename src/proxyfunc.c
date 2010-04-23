@@ -733,14 +733,16 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 		}
 	}
 
-	if( inbound ) {
-		int res;
-		res = AddToStack(m, s, 0);
-		if( debug > 5 )
-			debugmsg("AddToStack returned %d", res);
-		return res;
+	// Outbound or unfiltered packets are passed.
+	if( !inbound || (uchannel[0] == '\0' && ucontext[0] == '\0') ) {
+		return 1;
 	}
-	return 1;
+
+	int res;
+	res = AddToStack(m, s, 0);
+	if( debug > 5 )
+		debugmsg("AddToStack returned %d", res);
+	return res;
 }
 
 void *SendError(struct mansession *s, char *errmsg, char *actionid) {
