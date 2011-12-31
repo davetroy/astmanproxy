@@ -2,7 +2,7 @@ Source: astmanproxy
 Section: unknown
 Priority: extra
 Maintainer: Steve Davies <steved@ipcortex.co.uk>
-Build-Depends: debhelper (>= 5)
+Build-Depends: build-essential, debhelper (>= 5), libssl-dev
 Standards-Version: 3.7.2
 
 Package: astmanproxy

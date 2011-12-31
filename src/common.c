@@ -24,15 +24,11 @@ int get_input(struct mansession *s, char *output)
 
 	/* Look for \r\n from the front, our preferred end of line */
 	for (x=0;x<s->inlen;x++) {
-			int xtra = 0;
-		if (s->inbuf[x] == '\n') {
-				if (x && s->inbuf[x-1] == '\r') {
-					xtra = 1;
-				}
+		if ( (s->inbuf[x] == '\n') && (x && s->inbuf[x-1] == '\r') ) {
 			/* Copy output data not including \r\n */
-			memcpy(output, s->inbuf, x - xtra);
+			memcpy(output, s->inbuf, x - 1);
 			/* Add trailing \0 */
-			output[x-xtra] = '\0';
+			output[x-1] = '\0';
 			/* Move remaining data back to the front */
 			memmove(s->inbuf, s->inbuf + x + 1, s->inlen - x);
 			s->inlen -= (x + 1);
@@ -42,7 +38,7 @@ int get_input(struct mansession *s, char *output)
 
 	if (s->inlen >= sizeof(s->inbuf) - 1) {
 		if (debug)
-		debugmsg("Warning: Got long line with no end from %s: %s\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr), s->inbuf);
+			debugmsg("Warning: Got long line with no end from %s: %s\n", ast_inet_ntoa(iabuf, sizeof(iabuf), s->sin.sin_addr), s->inbuf);
 		s->inlen = 0;
 	}
 	/* get actual fd, even if a negative SSL fd */

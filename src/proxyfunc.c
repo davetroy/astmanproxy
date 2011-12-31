@@ -89,9 +89,9 @@ int ProxyChallenge(struct mansession *s, struct message *m) {
 
 	memset(&mo, 0, sizeof(struct message));
 	AddHeader(&mo, "Response: Success");
-	AddHeader(&mo, "Challenge: %s", s->challenge);
 	if( actionid && strlen(actionid) )
 		AddHeader(&mo, "ActionID: %s", actionid);
+	AddHeader(&mo, "Challenge: %s", s->challenge);
 
 	s->output->write(s, &mo);
 	return 0;
@@ -208,13 +208,17 @@ void *ProxyLogin(struct mansession *s, struct message *m) {
 	return 0;
 }
 
-void *ProxyLogoff(struct mansession *s) {
-	struct message m;
+void *ProxyLogoff(struct mansession *s, struct message *m) {
+	struct message mo;
+	char *actionid = actionid = astman_get_header(m, "ActionID");
 
-	memset(&m, 0, sizeof(struct message));
-	AddHeader(&m, "Goodbye: Y'all come back now, y'hear?");
+	memset(&mo, 0, sizeof(struct message));
+	AddHeader(&mo, "Response: Goodbye");
+	AddHeader(&mo, "Message: Thanks for all the fish.");
+	if( actionid && strlen(actionid) > 0 )
+		AddHeader(&mo, "ActionID: %s", actionid);
 
-	s->output->write(s, &m);
+	s->output->write(s, &mo);
 
 	destroy_session(s);
 	if (debug)
@@ -337,7 +341,7 @@ void *proxyaction_do(char *proxyaction, struct message *m, struct mansession *s)
 	else if (!strcasecmp(proxyaction,"ListIOHandlers"))
 		ProxyListIOHandlers(s);
 	else if (!strcasecmp(proxyaction,"Logoff"))
-		ProxyLogoff(s);
+		ProxyLogoff(s, m);
 	else
 	proxyerror_do(s, "Invalid Proxy Action");
 
@@ -500,7 +504,7 @@ void DelFromStack(struct message *m, struct mansession *s)
 }
 
 /* FreeStack - Removes all items from stack.
- */
+*/
 void FreeStack(struct mansession *s)
 {
 	struct mstack *t, *n;
@@ -587,7 +591,7 @@ void ResendFromStack(char* uniqueid, struct mansession *s, struct message *m)
 }
 
 int ValidateAction(struct message *m, struct mansession *s, int inbound) {
-	char *channel, *channel1, *channel2;
+	char *channel;
 	char *context;
 	char *uchannel;
 	char *ucontext;
@@ -597,6 +601,9 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 	char *response;
 	char *account;
 	char *uniqueid;
+	char *tmp;
+	char *cheaders[] = {"Channel","Channel1","Channel2","Source","Destination","DestinationChannel","ChannelCalling",NULL};
+	int i, cmatched, cfound;
 
 	if( pc.authrequired && !s->authenticated )
 		return 0;
@@ -648,49 +655,69 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 			return 1;
 	}
 
+	action = astman_get_header(m, "Action");
 	if( uchannel[0] != '\0' ) {
-		channel = astman_get_header(m, "Channel");
-		if( channel[0] != '\0' ) {	// We have a Channel: header, so filter on it.
-			if( strncasecmp( channel, uchannel, strlen(uchannel) ) ) {
-				if( debug )
-					debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
-				return 0;
-			}
-		} else {			// No Channel: header, what about Channel1: or Channel2: ?
-			channel1 = astman_get_header(m, "Channel1");
-			channel2 = astman_get_header(m, "Channel2");
-			if( channel1[0] != '\0' || channel2[0] != '\0' ) {
-				if( !(strncasecmp( channel1, uchannel, strlen(uchannel) ) == 0 ||
-					  strncasecmp( channel2, uchannel, strlen(uchannel) ) == 0) ) {
-					if( debug )
-						debugmsg("Message filtered (chan1/2): %s/%s != %s", channel1, channel2, uchannel);
-					return 0;
-				}
-			} else {		// No? What about Source: and Destination:
-				channel1 = astman_get_header(m, "Source");
-				channel2 = astman_get_header(m, "Destination");
-				if( channel1[0] != '\0' || channel2[0] != '\0' ) {
-					if( !(strncasecmp( channel1, uchannel, strlen(uchannel) ) == 0 ||
-						  strncasecmp( channel2, uchannel, strlen(uchannel) ) == 0) ) {
-						if( debug )
-							debugmsg("Message filtered (src/dst chan): %s/%s != %s", channel1, channel2, uchannel);
-						return 0;
+		if( debug )
+			debugmsg("Attempting filter using channel: %s", uchannel);
+		cmatched = 0;
+		cfound = 0;
+		for( i=0; cheaders[i] != NULL && !cmatched; i++ ) {
+			channel = astman_get_header(m, cheaders[i]);
+			if( channel[0] == '\0' )
+				continue;	// No header by that name.
+
+			cfound++;
+			if( !strncasecmp( channel, uchannel, strlen(uchannel) )) {	// We have a Channel: header, so filter on it.
+				if( debug > 3 )
+					debugmsg("Message not filtered (chan): %s due to match", channel);
+				cmatched++;
+			} else if( pc.filterlocal && !inbound && !strcasecmp( action, "Originate" ) && !strcasecmp( channel, "Local/" ) ) {
+				// Exceptions even if we don't match
+				if( pc.filterlocal == 1 ) {
+					// Allow all Local/ channels
+					if( debug > 3 )
+						debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
+					cmatched++;
+				} else if( pc.filterlocal == 2 ) {	// Allow with @ocontext
+					if( !(tmp=strchr(channel, '@')) || strcmp( (tmp+1), ucontext ) ) {
+						// if( debug ) {
+						// 	debugmsg("Message filtered (chan): %s != %s", channel, uchannel);
+						// 	debugmsg("filterlocal ->(context): %s != @%s", tmp?tmp:"", ucontext);
+						// }
+						// NOT MATCHED
+					} else {
+						if( debug > 3 )
+							debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
+						cmatched++;
+					}
+				} else if( pc.filterlocal == 3 ) {	// Set @ocontext and allow
+					if( (tmp=strchrnul(channel, '@')) ) {
+						*tmp='@';
+						strcpy( (tmp+1), ucontext );
+						if( debug > 3 )
+							debugmsg("Message not filtered (chan): %s due to filterlocal", channel);
+						cmatched++;
 					}
 				}
 			}
 		}
+		if( cfound && !cmatched ) {	// We find at least one matchable header, but no matches.
+			if( debug )
+				debugmsg("Message filtered %d channel headers != %s", cfound, uchannel);
+			return 0;
+		}
 	}
 
 	context = astman_get_header(m, "Context");
-	if( context[0] != '\0' && ucontext[0] != '\0' )
+	if( context[0] != '\0' && ucontext[0] != '\0' ) {
 		if( strcasecmp( context, ucontext ) ) {
 			if( debug )
 				debugmsg("Message filtered (ctxt): %s != %s", context, ucontext);
 			return 0;
 		}
+	}
 
 	if( s->user.account[0] != '\0' ) {
-		action = astman_get_header(m, "Action");
 		account = astman_get_header(m, "Account");
 		if( !strcasecmp( action, "Originate" ) ) {
 			if( debug )
@@ -706,14 +733,16 @@ int ValidateAction(struct message *m, struct mansession *s, int inbound) {
 		}
 	}
 
-	if( inbound ) {
-		int res;
-		res = AddToStack(m, s, 0);
-		if( debug > 5 )
-			debugmsg("AddToStack returned %d", res);
-		return res;
+	// Outbound or unfiltered packets are passed.
+	if( !inbound || (uchannel[0] == '\0' && ucontext[0] == '\0') ) {
+		return 1;
 	}
-	return 1;
+
+	int res;
+	res = AddToStack(m, s, 0);
+	if( debug > 5 )
+		debugmsg("AddToStack returned %d", res);
+	return res;
 }
 
 void *SendError(struct mansession *s, char *errmsg, char *actionid) {

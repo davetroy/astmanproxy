@@ -19,7 +19,7 @@ extern int SetProcUID( void );
 
 extern void *proxyaction_do(char *proxyaction, struct message *m, struct mansession *s);
 extern void *ProxyLogin(struct mansession *s, struct message *m);
-extern void *ProxyLogoff(struct mansession *s);
+extern void *ProxyLogoff(struct mansession *s, struct message *m);
 extern int  ValidateAction(struct message *m, struct mansession *s, int inbound);
 extern int  AddToStack(struct message *m, struct mansession *s, int withbody);
 extern void DelFromStack(struct message *m, struct mansession *s);
@@ -40,6 +40,7 @@ pthread_mutex_t debuglock;
 static int asock = -1;
 FILE *proxylog;
 int debug = 0;
+int foreground = 0;
 
 void hup(int sig) {
 	if (proxylog) {
@@ -136,6 +137,7 @@ void Usage( void )
 {
 	printf("Usage: astmanproxy [-d|-h|-v]\n");
 	printf(" -d : Start in Debug Mode\n");
+	printf(" -f : Run in foreground. Don't fork\n");
 	printf(" -h : Displays this message\n");
 	printf(" -v : Displays version information\n");
 	printf("Start with no options to run as daemon\n");
@@ -355,7 +357,7 @@ void *session_do(struct mansession *s)
 				s->authenticated = 0;
 				ProxyLogin(s, &m);
 			} else if ( !strcasecmp(action, "Logoff") )
-				ProxyLogoff(s);
+				ProxyLogoff(s, &m);
 			else if ( !strcasecmp(action, "Challenge") )
 				ProxyChallenge(s, &m);
 			else if ( !(*proxyaction == '\0') )
@@ -511,6 +513,7 @@ int StartServer(struct ast_server *srv) {
 	memset(s, 0, sizeof(struct mansession));
 	SetIOHandlers(s, "standard", "standard");
 	s->server = srv;
+	s->writetimeout = pc.asteriskwritetimeout;
 
 	bzero((char *) &s->sin,sizeof(s->sin));
 	s->sin.sin_family = AF_INET;
@@ -649,6 +652,7 @@ static void *accept_thread()
 		}
 		memset(s, 0, sizeof(struct mansession));
 		memcpy(&s->sin, &sin, sizeof(sin));
+		s->writetimeout = pc.clientwritetimeout;
 
 		/* For safety, make sure socket is non-blocking */
 		flags = fcntl(get_real_fd(as), F_GETFL);
@@ -690,11 +694,15 @@ int main(int argc, char *argv[])
 	char i;
 
 	/* Figure out if we are in debug mode, handle other switches */
-	while (( i = getopt( argc, argv, "dhv" ) ) != EOF )
+	while (( i = getopt( argc, argv, "dhvf" ) ) != EOF )
 	{
 		switch( i ) {
+			case 'f':
+				foreground=1;
+				break;
 			case 'd':
 				debug++;
+				foreground=1;
 				break;
 			case 'h':
 				Usage();
@@ -721,7 +729,7 @@ int main(int argc, char *argv[])
 	}
 
 	/* If we are not in debug mode, then fork to background */
-	if (!debug) {
+	if (!debug && !foreground) {
 		if ( (pid = fork()) < 0)
 			exit( 1 );
 		else if ( pid > 0)

@@ -25,8 +25,8 @@
 #endif
 
 #define BUFSIZE		 1024
-#define MAX_HEADERS	 256
-#define MAX_LEN		 1024
+#define MAX_HEADERS	 128
+#define MAX_LEN		 16384
 #define MAX_STACK	 1024
 #define MAX_STACKDATA	 32768
 
@@ -71,6 +71,7 @@ struct proxyconfig {
 	char inputformat[80];
 	char outputformat[80];
 	int autofilter;			/* enable autofiltering? */
+	int filterlocal;			/* enable unfiltered Local/ dialling? */
 	int authrequired;			/* is authentication required? */
 	char key[80];
 	char proc_user[40];
