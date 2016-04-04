@@ -15,6 +15,15 @@
 
 extern struct iohandler *iohandlers;
 
+int strcicmp(char const *a, char const *b)
+{ // http://stackoverflow.com/a/5820991/5815327
+    for (;; a++, b++) {
+        int d = tolower(*a) - tolower(*b);
+        if (d != 0 || !*a)
+            return d;
+    }
+}
+
 void *add_server(char *srvspec) {
 
 	int ccount = 0;
@@ -33,7 +42,6 @@ void *add_server(char *srvspec) {
 	
 	s = srvspec;
 	do {
-		*s = tolower(*s);
 		if ( *s == ',' ) {
 			ccount++;
 			continue;
@@ -67,7 +75,7 @@ void *add_server(char *srvspec) {
 		exit(1);
 	}
 
-	srv->use_ssl = (!strcmp(usessl,"on"));
+	srv->use_ssl = (!strcicmp(usessl,"on"));
 	srv->next = pc.serverlist;
 	pc.serverlist = srv;
 
@@ -83,8 +91,6 @@ void *processline(char *s) {
 	memset (value,0,sizeof value);
 
 	do {
-		*s = tolower(*s);
-
 		if ( *s == ' ' || *s == '\t')
 			continue;
 		if ( *s == ';' || *s == '#' || *s == '\r' || *s == '\n' )
@@ -102,48 +108,48 @@ void *processline(char *s) {
 	if (debug)
 		debugmsg("config: %s, %s", name, value);
 
-	if ( !strcmp(name,"host") )
+	if ( !strcicmp(name,"host") )
 		add_server(value);
-	else if (!strcmp(name,"retryinterval") )
+	else if (!strcicmp(name,"retryinterval") )
 		pc.retryinterval = atoi(value);
-	else if (!strcmp(name,"maxretries") )
+	else if (!strcicmp(name,"maxretries") )
 		pc.maxretries = atoi(value);
-	else if (!strcmp(name,"listenaddress") )
+	else if (!strcicmp(name,"listenaddress") )
 		strcpy(pc.listen_addr, value);
-	else if (!strcmp(name,"listenport") )
+	else if (!strcicmp(name,"listenport") )
 		pc.listen_port = atoi(value);
-	else if (!strcmp(name,"asteriskwritetimeout") )
+	else if (!strcicmp(name,"asteriskwritetimeout") )
 		pc.asteriskwritetimeout = atoi(value);
-	else if (!strcmp(name,"clientwritetimeout") )
+	else if (!strcicmp(name,"clientwritetimeout") )
 		pc.clientwritetimeout = atoi(value);
-	else if (!strcmp(name,"sslclienthellotimeout") )
+	else if (!strcicmp(name,"sslclienthellotimeout") )
 		pc.sslclhellotimeout = atoi(value);
-	else if (!strcmp(name,"authrequired") )
-		pc.authrequired = strcmp(value,"yes") ? 0 : 1;
-	else if (!strcmp(name,"acceptencryptedconnection") )
-		pc.acceptencryptedconnection = strcmp(value,"yes") ? 0 : 1;
-	else if (!strcmp(name,"acceptunencryptedconnection") )
-		pc.acceptunencryptedconnection = strcmp(value,"yes") ? 0 : 1;
-	else if (!strcmp(name,"certfile") )
+	else if (!strcicmp(name,"authrequired") )
+		pc.authrequired = strcicmp(value,"yes") ? 0 : 1;
+	else if (!strcicmp(name,"acceptencryptedconnection") )
+		pc.acceptencryptedconnection = strcicmp(value,"yes") ? 0 : 1;
+	else if (!strcicmp(name,"acceptunencryptedconnection") )
+		pc.acceptunencryptedconnection = strcicmp(value,"yes") ? 0 : 1;
+	else if (!strcicmp(name,"certfile") )
 		strcpy(pc.certfile, value);
-	else if (!strcmp(name,"proxykey") )
+	else if (!strcicmp(name,"proxykey") )
 		strcpy(pc.key, value);
-	else if (!strcmp(name,"proc_user") )
+	else if (!strcicmp(name,"proc_user") )
 		strcpy(pc.proc_user, value);
-	else if (!strcmp(name,"proc_group") )
+	else if (!strcicmp(name,"proc_group") )
 		strcpy(pc.proc_group, value);
-	else if (!strcmp(name,"logfile") )
+	else if (!strcicmp(name,"logfile") )
 		strcpy(pc.logfile, value);
-	else if (!strcmp(name,"autofilter") ) {
-		if( ! strcmp(value,"on") )
+	else if (!strcicmp(name,"autofilter") ) {
+		if( ! strcicmp(value,"on") )
 			pc.autofilter = 1;
-		else if( ! strcmp(value,"unique") )
+		else if( ! strcicmp(value,"unique") )
 			pc.autofilter = 2;
 		else
 			pc.autofilter = 0;
-	} else if (!strcmp(name,"outputformat") )
+	} else if (!strcicmp(name,"outputformat") )
 		strcpy(pc.outputformat, value);
-	else if (!strcmp(name,"inputformat") )
+	else if (!strcicmp(name,"inputformat") )
 		strcpy(pc.inputformat, value);
 
 	return 0;
